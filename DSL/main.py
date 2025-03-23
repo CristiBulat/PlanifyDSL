@@ -13,7 +13,7 @@ Room {
 Wall {
     id: "north_wall";
     start: [0, 0];
-    end: [500cm, 0];
+    end_on_wall: [500cm, 0];
 }
 
 Door {
@@ -23,6 +23,14 @@ Door {
     wall: "north_wall";
     position: 200cm;
 }
+
+for (item in [1, 2]) {
+    Room {
+        id: "test";
+        size: 500cm;
+    }
+}
+
 """
 
 # Create the lexer and parser
