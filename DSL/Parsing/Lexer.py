@@ -88,21 +88,21 @@ class Lexer:
         tok = Token("", "ILLEGAL", self.line, self.col)
 
         single_char_tokens = {
-            '=': "ASSIGN",
-            '+': "PLUS",
-            '-': "MINUS",
-            '/': "SLASH",
-            '*': "ASTERISK",
-            ',': "COMMA",
-            ';': "SEMICOLON",
-            ':': "COLON",
-            '(': "LPAREN",
-            ')': "RPAREN",
-            '{': "LBRACE",
-            '}': "RBRACE",
-            '[': "LBRACKET",
-            ']': "RBRACKET",
-            '!': "EXCLAM_MARK"
+            '=': TokenType.ASSIGN,
+            '+': TokenType.PLUS,
+            '-': TokenType.MINUS,
+            '/': TokenType.SLASH,
+            '*': TokenType.ASTERISK,
+            ',': TokenType.COMMA,
+            ';': TokenType.SEMICOLON,
+            ':': TokenType.COLON,
+            '(': TokenType.LPAREN,
+            ')': TokenType.RPAREN,
+            '{': TokenType.LBRACE,
+            '}': TokenType.RBRACE,
+            '[': TokenType.LBRACKET,
+            ']': TokenType.RBRACKET,
+            '!': TokenType.EXCLAM_MARK
         }
 
         if self.ch in single_char_tokens:
