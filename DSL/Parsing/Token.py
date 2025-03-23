@@ -1,4 +1,5 @@
-from typing import Dict, Set
+from typing import Dict
+
 
 class TokenType:
     IDENTIFIER = "IDENT"
@@ -48,7 +49,7 @@ class TokenType:
     CHAIR = "CHAIR"
     
     # Properties
-    ID_PROP = "ID_PROPERT"
+    ID_PROP = "ID_PROPERTY"
     ID_PARENT_PROP = "ID_PARENT_PROPERTY"
     WALL_PROP = "WALL_PROPERTY"
     END_ON_WALL = "END_ON_WALL_PROPERTY"
@@ -70,7 +71,7 @@ class TokenType:
     
     VISIBILITY_PROP_VALUE = "VISIBILITY"
     HIDDEN_PROP_VALUE = "HIDDEN"
-    VISIBLE_PROP_VALUE = "VISSIBLE"
+    VISIBLE_PROP_VALUE = "VISIBLE"
     
     # Measure units
     MEASURE_UNIT_MM = "MEASURE_MM"
@@ -78,14 +79,26 @@ class TokenType:
     MEASURE_UNIT_DM = "MEASURE_DM"
     MEASURE_UNIT_M = "MEASURE_M"
     MEASURE_UNIT_KM = "MEASURE_KM"
-    
+
+    IF = "IF"
+    ELSE = "ELSE"
+    FOR = "FOR"
+    IN = "IN"
+
     ILLEGAL = "ILLEGAL"
     END = "END"
 
     dataTypes = {INT, STRING, MEASURE, COLOR, FLOAT, LIST}
     structures = {ROOM, WINDOW, WALL, DOOR, ELEVATOR, STAIRS, BED, TABLE, CHAIR}
-    roomProps = {ID_PROP, SIZE_PROP, ANGLES_PROP, BORDER_PROP, POSITION_PROP, START_ON_WALL_PROP, LAYER_PROP}
+    roomProps = {
+        ID_PROP, ID_PARENT_PROP, WALL_PROP, END_ON_WALL, SIZE_PROP,
+        ANGLES_PROP, BORDER_PROP, POSITION_PROP, START_ON_WALL_PROP,
+        LENGTH_PROP, DIRECTION_PROP, START_PROPERTY, END_PROP,
+        WIDTH_PROP, HEIGHT_PROP, DISTANCE_WALL_PROP, LAYER_PROP,
+        ROTATION_PROP, LABEL_PROP
+    }
     measureUnits = {MEASURE_UNIT_MM, MEASURE_UNIT_CM, MEASURE_UNIT_DM, MEASURE_UNIT_M, MEASURE_UNIT_KM}
+
 
 keywords: Dict[str, str] = {
     "int": TokenType.INT,
@@ -129,6 +142,10 @@ keywords: Dict[str, str] = {
     "dm": TokenType.MEASURE_UNIT_DM,
     "m": TokenType.MEASURE_UNIT_M,
     "km": TokenType.MEASURE_UNIT_KM,
+    "if": TokenType.IF,
+    "else": TokenType.ELSE,
+    "for": TokenType.FOR,
+    "in": TokenType.IN,
 }
 
 class Token:
