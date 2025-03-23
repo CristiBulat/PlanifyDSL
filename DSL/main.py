@@ -10,18 +10,23 @@ Room {
     position: [0, 0];
 }
 
-Wall {
-    id: "north_wall";
-    start: [0, 0];
-    end: [500cm, 0];
+if (id == "kitchen") {
+    Room {
+        id: "test_room";
+        size: 300cm;
+    }
+} else {
+    Room {
+        id: "alternative_room";
+        size: 400cm;
+    }
 }
 
-Door {
-    id: "main_door";
-    width: 90cm;
-    height: 210cm;
-    wall: "north_wall";
-    position: 200cm;
+for (i in [1, 2, 3]) {
+    Room {
+        id: "room_" + i;
+        size: 200cm;
+    }
 }
 """
 
