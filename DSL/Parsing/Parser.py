@@ -1,5 +1,5 @@
-from .Token import Token, TokenType, look_up_ident
 from .AST import *
+from .Token import TokenType
 
 
 class Parser:
@@ -88,6 +88,10 @@ class Parser:
             return self.parse_declaration_statement()
         elif self.current_token.type in TokenType.structures:
             return self.parse_structure_statement()
+        elif self.current_token.type == TokenType.IF:
+            return self.parse_if_statement()
+        elif self.current_token.type == TokenType.FOR:
+            return self.parse_for_statement()
         else:
             return self.parse_expression_statement()
 
@@ -132,19 +136,23 @@ class Parser:
         return stmt
 
     def parse_structure_statement(self):
-        """Parse structure: Structure { property: value; ... }"""
         stmt = StructureStatementNode(self.current_token, self.current_token.type)
 
-        if not self.expect_peek(TokenType.LBRACE):
+        if not self.expect_peek(TokenType.LBRACE):  # Use expect_peek to advance if correct
             return None
 
-        self.next_token()
+        self.next_token()  # Move into the block, now on first property or `}`
 
         while not self.current_token_is(TokenType.RBRACE) and not self.current_token_is(TokenType.END):
             prop = self.parse_property()
             if prop:
                 stmt.properties.append(prop)
-            self.next_token()
+            else:
+                # Optional: recover if parsing fails by skipping one token
+                self.next_token()
+                continue
+
+            self.next_token()  # Move to next property (or RBRACE)
 
         return stmt
 
@@ -173,6 +181,9 @@ class Parser:
         stmt = ExpressionStatementNode(self.current_token)
 
         stmt.expression = self.parse_expression()
+
+        if stmt.expression is None:
+            return None
 
         if self.peek_token_is(TokenType.SEMICOLON):
             self.next_token()
@@ -204,6 +215,10 @@ class Parser:
         else:
             # Create a default expression node for tokens we don't explicitly handle
             prefix = IdentifierNode(self.current_token, self.current_token.literal)
+
+        if self.current_token.type in [TokenType.INT_LITERAL, TokenType.FLOAT_LITERAL] and \
+                self.peek_token.type in TokenType.measureUnits:
+            return self.parse_measure_literal_from_value(prefix)
 
         # Now handle infix expressions with precedence climbing
         while not self.peek_token_is(TokenType.SEMICOLON) and precedence < self.peek_precedence():
@@ -277,25 +292,30 @@ class Parser:
         return array
 
     def parse_expression_list(self, end):
-        """Parse list of expressions until end token"""
-        expression_list = []
-
-        if self.peek_token_is(end):
-            self.next_token()
-            return expression_list
+        elements = []
 
         self.next_token()
-        expression_list.append(self.parse_expression())
+
+        expr = self.parse_expression()
+        if expr is None:
+            self.errors.append(f"Invalid expression in list at token: {self.current_token.type}")
+            return None
+        elements.append(expr)
 
         while self.peek_token_is(TokenType.COMMA):
-            self.next_token()
-            self.next_token()
-            expression_list.append(self.parse_expression())
+            self.next_token()  # skip comma
+            self.next_token()  # move to next expression
+            expr = self.parse_expression()
+            if expr is None:
+                self.errors.append(f"Invalid expression in list at token: {self.current_token.type}")
+                return None
+            elements.append(expr)
 
         if not self.expect_peek(end):
+            self.errors.append(f"Expected end of list token {end}, got {self.peek_token.type}")
             return None
 
-        return expression_list
+        return elements
 
     def parse_prefix_expression(self):
         """Parse prefix expression: operator expression"""
@@ -356,10 +376,76 @@ class Parser:
 
     def parse_measure_literal_from_value(self, value_expr):
         """Parse measure literal when we already have the value expression"""
-        self.next_token()  # Consume the unit token
-
+        self.next_token()  # Move to unit
         return MeasureLiteralNode(self.current_token, value_expr, self.current_token.type)
 
+    def parse_if_statement(self):
+        stmt = IfStatementNode(self.current_token)
+
+        if not self.expect_peek(TokenType.LPAREN):
+            return None
+
+        self.next_token()  # Move to first token of condition
+        stmt.condition = self.parse_expression()
+
+        if not self.expect_peek(TokenType.RPAREN):  # ✅ FIXED
+            return None
+
+        if not self.expect_peek(TokenType.LBRACE):
+            return None
+
+        self.next_token()
+        while not self.current_token_is(TokenType.RBRACE) and not self.current_token_is(TokenType.END):
+            body_stmt = self.parse_statement()
+            if body_stmt:
+                stmt.consequence.append(body_stmt)
+            self.next_token()
+
+        if self.peek_token_is(TokenType.ELSE):
+            self.next_token()
+            if not self.expect_peek(TokenType.LBRACE):
+                return None
+            self.next_token()
+            while not self.current_token_is(TokenType.RBRACE) and not self.current_token_is(TokenType.END):
+                alt_stmt = self.parse_statement()
+                if alt_stmt:
+                    stmt.alternative.append(alt_stmt)
+                self.next_token()
+
+        return stmt
+
+    def parse_for_statement(self):
+        stmt = ForStatementNode(self.current_token)
+
+        if not self.expect_peek(TokenType.LPAREN):
+            return None
+        self.next_token()
+
+        if self.current_token.type != TokenType.IDENTIFIER:
+            self.errors.append(f"Expected identifier in for loop, got {self.current_token.type}")
+            return None
+
+        stmt.iterator = IdentifierNode(self.current_token, self.current_token.literal)
+
+        if not self.expect_peek(TokenType.IN):
+            return None
+        self.next_token()
+
+        stmt.iterable = self.parse_expression()
+
+        if not self.expect_peek(TokenType.RPAREN):
+            return None
+        if not self.expect_peek(TokenType.LBRACE):
+            return None
+
+        self.next_token()
+        while not self.current_token_is(TokenType.RBRACE):
+            body_stmt = self.parse_statement()
+            if body_stmt:
+                stmt.body.append(body_stmt)
+            self.next_token()
+
+        return stmt
     def parse(self):
         """Main entry point for parsing"""
         program = self.parse_program()
