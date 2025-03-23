@@ -3,33 +3,33 @@ from typing import Dict
 
 class TokenType:
     IDENTIFIER = "IDENT"
-    
+
     # Literals
     INT_LITERAL = "INT_LITERAL"
     FLOAT_LITERAL = "FLOAT_LITERAL"
     STRING_LITERAL = "STRING_LITERAL"
     COLOR_LITERAL = "COLOR_LITERAL"
-    
+
     # Operators
     ASSIGN = "="
     PLUS = "+"
     MINUS = "-"
     ASTERISK = "*"
     SLASH = "/"
-    
+
     COMMA = ","
     SEMICOLON = ";"
     COLON = ":"
-    
+
     LPAREN = "("
     RPAREN = ")"
     LBRACE = "{"
     RBRACE = "}"
     LBRACKET = "["
     RBRACKET = "]"
-    
+
     EXCLAM_MARK = "!"
-    
+
     # Keywords
     INT = "INT"
     STRING = "STRING"
@@ -37,7 +37,7 @@ class TokenType:
     COLOR = "COLOR"
     FLOAT = "FLOAT"
     LIST = "LIST"
-    
+
     ROOM = "ROOM"
     WINDOW = "WINDOW"
     WALL = "WALL"
@@ -47,7 +47,7 @@ class TokenType:
     BED = "BED"
     TABLE = "TABLE"
     CHAIR = "CHAIR"
-    
+
     # Properties
     ID_PROP = "ID_PROPERTY"
     ID_PARENT_PROP = "ID_PARENT_PROPERTY"
@@ -68,11 +68,11 @@ class TokenType:
     LAYER_PROP = "LAYER"
     ROTATION_PROP = "ROTATION"
     LABEL_PROP = "LABEL"
-    
+
     VISIBILITY_PROP_VALUE = "VISIBILITY"
     HIDDEN_PROP_VALUE = "HIDDEN"
     VISIBLE_PROP_VALUE = "VISIBLE"
-    
+
     # Measure units
     MEASURE_UNIT_MM = "MEASURE_MM"
     MEASURE_UNIT_CM = "MEASURE_CM"
@@ -148,15 +148,17 @@ keywords: Dict[str, str] = {
     "in": TokenType.IN,
 }
 
+
 class Token:
     def __init__(self, literal: str, type_: str, line: int, col: int):
         self.literal = literal
         self.type = type_
         self.line = line
         self.col = col
-    
+
     def __str__(self):
         return f"{self.literal}, type: {self.type}, line: {self.line}, col: {self.col}"
+
 
 def look_up_ident(ident: str) -> str:
     return keywords.get(ident, TokenType.IDENTIFIER)
