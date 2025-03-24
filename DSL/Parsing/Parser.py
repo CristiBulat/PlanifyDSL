@@ -19,6 +19,7 @@ class Parser:
             TokenType.SLASH: 5,
             TokenType.ASTERISK: 5,
             TokenType.LBRACKET: 6,
+            TokenType.EQUAL: 3,
         }
 
         # Error tracking
@@ -191,10 +192,10 @@ class Parser:
         return stmt
 
     def parse_expression(self, precedence=0):
-        """Parse expression with precedence climbing"""
+        """Parse an expression with precedence climbing."""
         prefix = None
 
-        # Handle all token types appropriately
+        # Handle prefix expressions (identifiers, literals, grouped expressions, etc.)
         if self.current_token.type == TokenType.IDENTIFIER:
             prefix = self.parse_identifier()
         elif self.current_token.type == TokenType.INT_LITERAL:
@@ -211,21 +212,22 @@ class Parser:
             prefix = self.parse_array_literal()
         elif self.current_token.type == TokenType.MINUS or self.current_token.type == TokenType.EXCLAM_MARK:
             prefix = self.parse_prefix_expression()
-        # For all other token types, create a literal node with the token value
         else:
-            # Create a default expression node for tokens we don't explicitly handle
+            # Handle unexpected tokens by creating a default expression node
             prefix = IdentifierNode(self.current_token, self.current_token.literal)
 
+        # Handle measure literals (e.g., 500cm)
         if self.current_token.type in [TokenType.INT_LITERAL, TokenType.FLOAT_LITERAL] and \
                 self.peek_token.type in TokenType.measureUnits:
             return self.parse_measure_literal_from_value(prefix)
 
-        # Now handle infix expressions with precedence climbing
+        # Handle infix expressions with precedence climbing
         while not self.peek_token_is(TokenType.SEMICOLON) and precedence < self.peek_precedence():
             if self.peek_token.type == TokenType.PLUS or \
                     self.peek_token.type == TokenType.MINUS or \
                     self.peek_token.type == TokenType.SLASH or \
-                    self.peek_token.type == TokenType.ASTERISK:
+                    self.peek_token.type == TokenType.ASTERISK or \
+                    self.peek_token.type == TokenType.EQUAL:  # Handle ==
                 self.next_token()
                 prefix = self.parse_infix_expression(prefix)
             elif self.peek_token.type == TokenType.LBRACKET:
@@ -388,13 +390,13 @@ class Parser:
         self.next_token()  # Move to first token of condition
         stmt.condition = self.parse_expression()
 
-        if not self.expect_peek(TokenType.RPAREN):  # ✅ FIXED
+        if not self.expect_peek(TokenType.RPAREN):
             return None
 
         if not self.expect_peek(TokenType.LBRACE):
             return None
 
-        self.next_token()
+        self.next_token()  # Move into the block, now on first statement or `}`
         while not self.current_token_is(TokenType.RBRACE) and not self.current_token_is(TokenType.END):
             body_stmt = self.parse_statement()
             if body_stmt:
@@ -402,10 +404,10 @@ class Parser:
             self.next_token()
 
         if self.peek_token_is(TokenType.ELSE):
-            self.next_token()
+            self.next_token()  # Move to 'else'
             if not self.expect_peek(TokenType.LBRACE):
                 return None
-            self.next_token()
+            self.next_token()  # Move into the else block, now on first statement or `}`
             while not self.current_token_is(TokenType.RBRACE) and not self.current_token_is(TokenType.END):
                 alt_stmt = self.parse_statement()
                 if alt_stmt:

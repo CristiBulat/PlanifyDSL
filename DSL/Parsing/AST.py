@@ -317,7 +317,10 @@ class IfStatementNode(StatementNode):
         if self.alternative:
             alt_body = "\n".join(s.to_string() for s in self.alternative)
             alt = f"\nelse {{\n{alt_body}\n}}"
-        return f"if ({self.condition.to_string()}) {{\n{consequence_str}\n}}{alt}"
+        condition_str = self.condition.to_string()
+        if condition_str.startswith("(") and condition_str.endswith(")"):
+            condition_str = condition_str[1:-1]
+        return f"if ({condition_str}) {{\n{consequence_str}\n}}{alt}"
 
 
 class ForStatementNode(StatementNode):

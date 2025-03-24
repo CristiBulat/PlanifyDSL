@@ -17,6 +17,8 @@ class TokenType:
     ASTERISK = "*"
     SLASH = "/"
 
+    EQUAL = "=="
+
     COMMA = ","
     SEMICOLON = ";"
     COLON = ":"
