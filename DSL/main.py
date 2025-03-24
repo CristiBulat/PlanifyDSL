@@ -28,6 +28,14 @@ for (i in [1, 2, 3]) {
         size: 200cm;
     }
 }
+
+for (item in [1, 2]) {
+    Room {
+        id: "test";
+        size: 500cm;
+    }
+}
+
 """
 
 # Create the lexer and parser
