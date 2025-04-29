@@ -314,3 +314,81 @@ class SVGExporter:
         # Write to file
         with open(filename, 'w') as f:
             f.write(svg)
+
+    def add_rounded_rectangle(self, x, y, width, height, radius, fill="#FFFFFF", stroke="#000000", stroke_width=1):
+        """
+        Add a rectangle with rounded corners to the SVG
+
+        Args:
+            x: X coordinate of the top-left corner
+            y: Y coordinate of the top-left corner
+            width: Width of the rectangle
+            height: Height of the rectangle
+            radius: Corner radius
+            fill: Fill color (hex code or name)
+            stroke: Stroke color (hex code or name)
+            stroke_width: Stroke width in pixels
+        """
+        path = f'M {x + radius} {y} '
+        path += f'L {x + width - radius} {y} '
+        path += f'Q {x + width} {y} {x + width} {y + radius} '
+        path += f'L {x + width} {y + height - radius} '
+        path += f'Q {x + width} {y + height} {x + width - radius} {y + height} '
+        path += f'L {x + radius} {y + height} '
+        path += f'Q {x} {y + height} {x} {y + height - radius} '
+        path += f'L {x} {y + radius} '
+        path += f'Q {x} {y} {x + radius} {y} Z'
+
+        element = f'<path d="{path}" fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}" />'
+        self.elements.append(element)
+
+    def add_grid(self, width, height, grid_size, stroke="#DDDDDD", stroke_width=0.5):
+        """
+        Add a grid to the SVG
+
+        Args:
+            width: Total width of the grid
+            height: Total height of the grid
+            grid_size: Size of grid cells
+            stroke: Grid line color
+            stroke_width: Grid line width
+        """
+        # Horizontal grid lines
+        for y in range(0, int(height) + grid_size, grid_size):
+            self.add_line(0, y, width, y, stroke=stroke, stroke_width=stroke_width)
+
+        # Vertical grid lines
+        for x in range(0, int(width) + grid_size, grid_size):
+            self.add_line(x, 0, x, height, stroke=stroke, stroke_width=stroke_width)
+
+    def add_dimension_line(self, x1, y1, x2, y2, offset=10, text=None, stroke="#000000", stroke_width=0.5,
+                           font_size=10):
+        """
+        Add a dimension line with optional text
+
+        Args:
+            x1, y1: Start point
+            x2, y2: End point
+            offset: Offset from the measured object
+            text: Text to display
+            stroke: Line color
+            stroke_width: Line width
+            font_size: Font size for text
+        """
+        # Draw the dimension line
+        self.add_line(x1, y1, x2, y2, stroke=stroke, stroke_width=stroke_width)
+
+        # Draw end ticks
+        tick_size = 5
+        if x1 == x2:  # Vertical dimension
+            self.add_line(x1 - tick_size, y1, x1 + tick_size, y1, stroke=stroke, stroke_width=stroke_width)
+            self.add_line(x2 - tick_size, y2, x2 + tick_size, y2, stroke=stroke, stroke_width=stroke_width)
+        else:  # Horizontal dimension
+            self.add_line(x1, y1 - tick_size, x1, y1 + tick_size, stroke=stroke, stroke_width=stroke_width)
+            self.add_line(x2, y2 - tick_size, x2, y2 + tick_size, stroke=stroke, stroke_width=stroke_width)
+
+        # Add text if provided
+        if text:
+            text_x = (x1 + x2) / 2
+            text_y = (y1 + y2) / 2
+            self.add_text(text, text_x, text_y, font_size=font_size, fill=stroke, text_anchor="middle")
