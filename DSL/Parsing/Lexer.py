@@ -10,10 +10,11 @@ class Lexer:
         self.ch = ''
         self.line = 0
         self.col = 0
-        self.errors = []  # Adaugă lista de erori
+        self.errors = []  # List of errors
         self.read_char()
 
     def read_char(self):
+        """Read the next character and update position"""
         if self.read_position >= len(self.input):
             self.ch = '\0'
         else:
@@ -29,9 +30,11 @@ class Lexer:
         self.read_position += 1
 
     def peek_char(self):
+        """Look at the next character without consuming it"""
         return self.input[self.read_position] if self.read_position < len(self.input) else '\0'
 
     def seek(self, offset):
+        """Move to a specific position in the input"""
         self.col = offset
         self.read_position = offset
         self.ch = self.input[self.read_position] if self.read_position < len(self.input) else '\0'
@@ -39,12 +42,14 @@ class Lexer:
         self.read_position += 1
 
     def read_identifier(self):
+        """Read an identifier (variable name, keyword)"""
         start = self.position
         while self.ch.isalpha() or self.ch == '_':
             self.read_char()
         return self.input[start: self.position]
 
     def read_number(self):
+        """Read a numeric literal (integer or float)"""
         start = self.position
         tok = Token("", "INT_LITERAL", self.line, self.col)
 
@@ -61,26 +66,31 @@ class Lexer:
         return tok
 
     def read_hex_code(self):
+        """Read a hex color code (like #FF5733)"""
         start = self.position
         if self.ch == '#':
             self.read_char()
         while self.ch.isalnum():
             self.read_char()
         hex_code = self.input[start:self.position]
-        # Validare suplimentară pentru coduri hexazecimale
+        # Validate hex color code
         if not re.match(r'^#[0-9a-fA-F]+$', hex_code):
             self.errors.append(f"Invalid hex color code at line {self.line}, column {self.col}")
             return None
         return hex_code
 
     def skip_whitespace(self):
+        """Skip whitespace and comments"""
         while self.ch in (' ', '\n', '\t', '\r'):
             self.read_char()
+
+        # Skip single-line comments
         if self.ch == '/' and self.peek_char() == '/':
             while self.ch != '\n' and self.ch != '\0':
                 self.read_char()
             self.skip_whitespace()
-        # Adaugă suport pentru comentarii pe mai multe linii (opțional)
+
+        # Skip multi-line comments
         elif self.ch == '/' and self.peek_char() == '*':
             self.read_char()  # Consume '/'
             self.read_char()  # Consume '*'
@@ -93,6 +103,7 @@ class Lexer:
                 self.errors.append(f"Unterminated multi-line comment at line {self.line}, column {self.col}")
 
     def set_input(self, input_str):
+        """Reset lexer with new input"""
         self.input = input_str
         self.position = 0
         self.read_position = 0
@@ -101,6 +112,7 @@ class Lexer:
         self.read_char()
 
     def next_token(self):
+        """Get the next token from the input"""
         self.skip_whitespace()
         tok = Token("", "ILLEGAL", self.line, self.col)
 
@@ -146,12 +158,19 @@ class Lexer:
                 tok = Token(self.input[start_pos:self.position], TokenType.ILLEGAL, self.line, self.col)
                 self.errors.append(f"Unterminated string literal at line {self.line}, column {self.col}")
         elif self.ch == '#':
-            # Handle color literals (e.g., #FF5733)
-            hex_code = self.read_hex_code()
-            if hex_code:
-                tok = Token(hex_code, TokenType.COLOR_LITERAL, self.line, self.col)
+            # Check if this is a header statement or a color literal
+            next_char = self.peek_char()
+            if next_char.isspace():
+                # This is likely a header statement
+                tok = Token("#", "#", self.line, self.col)
+                self.read_char()
             else:
-                tok = Token("", TokenType.ILLEGAL, self.line, self.col)
+                # This is likely a color literal
+                hex_code = self.read_hex_code()
+                if hex_code:
+                    tok = Token(hex_code, TokenType.COLOR_LITERAL, self.line, self.col)
+                else:
+                    tok = Token("", TokenType.ILLEGAL, self.line, self.col)
         elif self.ch.isalpha() or self.ch == '_':
             # Handle identifiers and keywords
             ident = self.read_identifier()

@@ -83,7 +83,10 @@ class Parser:
 
     def parse_statement(self):
         """Parse a statement based on token type"""
-        if self.current_token.type == TokenType.IDENTIFIER:
+        # Special case for header statement (starting with #)
+        if self.current_token.literal == '#':
+            return self.parse_header_statement()
+        elif self.current_token.type == TokenType.IDENTIFIER:
             return self.parse_assignment_statement()
         elif self.current_token.type in TokenType.dataTypes:
             return self.parse_declaration_statement()
@@ -95,6 +98,50 @@ class Parser:
             return self.parse_for_statement()
         else:
             return self.parse_expression_statement()
+
+    def parse_header_statement(self):
+        """Parse header statement: # size: width x height"""
+        header = HeaderStatementNode(self.current_token)
+
+        # Skip the '#' token
+        self.next_token()
+
+        # Skip the 'size' keyword or other identifier
+        # It could be parsed as SIZE_PROP or as an identifier
+        if self.current_token.type == TokenType.IDENTIFIER or self.current_token.type == TokenType.SIZE_PROP:
+            self.next_token()
+
+        # Skip colon or equals - accept either
+        if self.current_token.type == TokenType.COLON or self.current_token.type == TokenType.ASSIGN:
+            self.next_token()
+
+        # Parse width
+        if self.current_token.type == TokenType.INT_LITERAL or self.current_token.type == TokenType.FLOAT_LITERAL:
+            try:
+                header.width = float(self.current_token.literal)
+            except ValueError:
+                self.errors.append(f"Could not parse width value: {self.current_token.literal}")
+        else:
+            self.errors.append(f"Expected width value, got {self.current_token.type}")
+
+        # Skip to the 'x' separator
+        self.next_token()
+
+        # Skip the 'x' separator - it might be an identifier or a literal 'x'
+        if self.current_token.literal == 'x' or (
+                self.current_token.type == TokenType.IDENTIFIER and self.current_token.literal == 'x'):
+            self.next_token()
+
+        # Parse height
+        if self.current_token.type == TokenType.INT_LITERAL or self.current_token.type == TokenType.FLOAT_LITERAL:
+            try:
+                header.height = float(self.current_token.literal)
+            except ValueError:
+                self.errors.append(f"Could not parse height value: {self.current_token.literal}")
+        else:
+            self.errors.append(f"Expected height value, got {self.current_token.type}")
+
+        return header
 
     def parse_assignment_statement(self):
         """Parse assignment: identifier = expression;"""
@@ -448,6 +495,7 @@ class Parser:
             self.next_token()
 
         return stmt
+
     def parse(self):
         """Main entry point for parsing"""
         program = self.parse_program()
