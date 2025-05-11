@@ -29,17 +29,22 @@ async def parse_dsl_code(
     """
     try:
         # Process the DSL code
-        elements, svg_path = dsl_service.process_dsl_code(request.code)
+        user_id = str(request.user_id) if request.user_id else None
+        elements, svg_path = dsl_service.process_dsl_code(request.code, user_id)
 
         # Create relative URL for the SVG file
         svg_filename = os.path.basename(svg_path)
         svg_url = f"/api/svg/{svg_filename}"
 
+        # Debug output
+        print(f"SVG URL: {svg_url}")
+
         # Return the response
-        return {
+        response_data = {
             "elements": elements,
             "svg_url": svg_url
         }
+        return response_data
 
     except Exception as e:
         raise HTTPException(

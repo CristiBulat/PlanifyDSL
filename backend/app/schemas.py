@@ -23,6 +23,7 @@ class FloorPlanElement(BaseModel):
     height: Optional[float] = None
     wall: Optional[str] = None
     direction: Optional[str] = None
+    label: Optional[str] = None
 
 
 # Response model for the complete floor plan

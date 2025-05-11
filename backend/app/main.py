@@ -7,7 +7,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.append(project_root)
 print(f"Added {project_root} to Python path")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -28,6 +28,17 @@ app = FastAPI(
     description="API for parsing DSL code and generating floor plans",
     version="1.0.0",
 )
+
+# Add middleware for SVG CORS headers
+@app.middleware("http")
+async def add_cors_headers_for_svg(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.endswith('.svg') or '.svg?' in request.url.path:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Configure CORS
 app.add_middleware(

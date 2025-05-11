@@ -20,14 +20,20 @@ class DSLService:
         # Ensure output directory exists
         self.SVG_OUTPUT_DIR = SVG_OUTPUT_DIR
         os.makedirs(self.SVG_OUTPUT_DIR, exist_ok=True)
+
+        # Create a default SVG filename
+        self.default_svg_filename = "floor_plan_current.svg"
+        self.default_svg_path = os.path.join(self.SVG_OUTPUT_DIR, self.default_svg_filename)
+
         print(f"DSL Service initialized with output directory: {self.SVG_OUTPUT_DIR}")
 
-    def process_dsl_code(self, dsl_code: str) -> Tuple[List[Dict[str, Any]], str]:
+    def process_dsl_code(self, dsl_code: str, user_id: str = None) -> Tuple[List[Dict[str, Any]], str]:
         """
         Process DSL code and generate a floor plan
 
         Args:
             dsl_code: DSL code to parse
+            user_id: Optional user ID for personalized filenames
 
         Returns:
             Tuple of (elements list, svg_path)
@@ -56,9 +62,13 @@ class DSLService:
             layout_manager = LayoutManager(floor_plan)
             optimized_floor_plan = layout_manager.optimize_layout()
 
-            # Generate a unique filename for the SVG
-            file_id = uuid.uuid4().hex[:8]
-            svg_filename = os.path.join(self.SVG_OUTPUT_DIR, f"floor_plan_{file_id}.svg")
+            # Use a consistent filename instead of generating a new one each time
+            svg_filename = self.default_svg_filename
+            if user_id:
+                # For multi-user scenario, you could use user-specific files
+                svg_filename = f"floor_plan_{user_id}.svg"
+
+            svg_path = os.path.join(self.SVG_OUTPUT_DIR, svg_filename)
 
             # Render the floor plan to SVG
             renderer = Renderer(scale=10)
@@ -67,14 +77,14 @@ class DSLService:
             renderer.show_dimensions = True
             renderer.enhanced_colors = True
             renderer.wall_thickness = 3
-            renderer.render(optimized_floor_plan, svg_filename)
+            renderer.render(optimized_floor_plan, svg_path)
 
-            print(f"Floor plan rendered to: {svg_filename}")
+            print(f"Floor plan rendered to: {svg_path}")
 
             # Convert floor plan to JSON format
             elements = self._floor_plan_to_json(optimized_floor_plan)
 
-            return elements, svg_filename
+            return elements, svg_path
 
         except Exception as e:
             print(f"Error processing DSL code: {str(e)}")
@@ -100,6 +110,8 @@ class DSLService:
                 "position": [room.x, room.y],
                 "size": [room.width, room.height]
             }
+            if hasattr(room, 'label') and room.label:
+                room_json["label"] = room.label
             elements.append(room_json)
 
         # Add walls
@@ -119,9 +131,10 @@ class DSLService:
                 "type": "door",
                 "position": [door.x, door.y],
                 "width": door.width,
-                "height": door.height,
-                "direction": door.direction
+                "height": door.height
             }
+            if hasattr(door, 'direction'):
+                door_json["direction"] = door.direction
             elements.append(door_json)
 
         # Add windows
@@ -139,7 +152,7 @@ class DSLService:
         for furniture in floor_plan.furniture:
             furniture_json = {
                 "id": furniture.id or f"furniture_{len(elements)}",
-                "type": furniture.furniture_type.lower(),
+                "type": furniture.furniture_type.lower() if hasattr(furniture, "furniture_type") else "furniture",
                 "position": [furniture.x, furniture.y],
                 "width": furniture.width,
                 "height": furniture.height
