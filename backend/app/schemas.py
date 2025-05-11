@@ -24,54 +24,8 @@ class FloorPlanElement(BaseModel):
     wall: Optional[str] = None
     direction: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 
 # Response model for the complete floor plan
 class FloorPlanResponse(BaseModel):
     elements: List[FloorPlanElement]
     svg_url: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-# Database models as schemas
-class FloorPlanBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    dsl_code: str
-
-
-class FloorPlanCreate(FloorPlanBase):
-    user_id: Optional[int] = None
-
-
-class FloorPlan(FloorPlanBase):
-    id: int
-    svg_output: Optional[str] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
-
-class UserBase(BaseModel):
-    username: str
-    email: str
-
-
-class UserCreate(UserBase):
-    password: str
-
-
-class User(UserBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    floor_plans: List[FloorPlan] = []
-
-    class Config:
-        from_attributes = True

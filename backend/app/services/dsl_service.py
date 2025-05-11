@@ -1,7 +1,6 @@
 import os
 import uuid
-import json
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple
 
 # Import DSL components
 from DSL.Parsing.Lexer import Lexer
@@ -19,7 +18,9 @@ class DSLService:
     def __init__(self):
         """Initialize the DSL service"""
         # Ensure output directory exists
-        os.makedirs(SVG_OUTPUT_DIR, exist_ok=True)
+        self.SVG_OUTPUT_DIR = SVG_OUTPUT_DIR
+        os.makedirs(self.SVG_OUTPUT_DIR, exist_ok=True)
+        print(f"DSL Service initialized with output directory: {self.SVG_OUTPUT_DIR}")
 
     def process_dsl_code(self, dsl_code: str) -> Tuple[List[Dict[str, Any]], str]:
         """
@@ -34,6 +35,7 @@ class DSLService:
             - svg_path: Path to the generated SVG file
         """
         try:
+            print("Processing DSL code...")
             # Create the lexer and parser
             lexer = Lexer(dsl_code)
             parser = Parser(lexer)
@@ -56,7 +58,7 @@ class DSLService:
 
             # Generate a unique filename for the SVG
             file_id = uuid.uuid4().hex[:8]
-            svg_filename = os.path.join(SVG_OUTPUT_DIR, f"floor_plan_{file_id}.svg")
+            svg_filename = os.path.join(self.SVG_OUTPUT_DIR, f"floor_plan_{file_id}.svg")
 
             # Render the floor plan to SVG
             renderer = Renderer(scale=10)
@@ -67,12 +69,15 @@ class DSLService:
             renderer.wall_thickness = 3
             renderer.render(optimized_floor_plan, svg_filename)
 
+            print(f"Floor plan rendered to: {svg_filename}")
+
             # Convert floor plan to JSON format
             elements = self._floor_plan_to_json(optimized_floor_plan)
 
             return elements, svg_filename
 
         except Exception as e:
+            print(f"Error processing DSL code: {str(e)}")
             raise Exception(f"Error processing DSL code: {str(e)}")
 
     def _floor_plan_to_json(self, floor_plan) -> List[Dict[str, Any]]:
