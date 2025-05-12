@@ -9,10 +9,11 @@ export interface FloorPlanElement {
   height?: number;
   wall?: string;
   direction?: string;
+  label?: string;
   [key: string]: any;
 }
 
 export interface FloorPlanData {
   elements: FloorPlanElement[];
-  svg_url?: string; // Make sure this is defined
+  svg_url?: string;
 }

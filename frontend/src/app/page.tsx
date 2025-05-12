@@ -8,53 +8,92 @@ import FloorPlanEditor from "@/components/floor-plan-editor"
 import FloorPlanViewer from "@/components/floor-plan-viewer"
 import CodeEditor from "@/components/code-editor"
 import { parseFloorPlan } from "@/lib/api"
-import type { FloorPlanData } from "@/lib/types"
+import type { FloorPlanData, FloorPlanElement } from "@/lib/types"
 import { Loader2, Code2, Grid2X2 } from "lucide-react"
 
 export default function Home() {
-  const [dslCode, setDslCode] = useState<string>(`// Example DSL code
+  const [dslCode, setDslCode] = useState<string>(`# size: 1000 x 1000
+
+// Bedroom
 Room {
-  id: "living_room";
-  size: {10m, 8m};
-  position: {0m, 0m};
+    id: "bedroom";
+    label: "Bedroom";
+    size: [300, 250];
+    position: [0, 0];
 }
 
-Wall {
-  id: "north_wall";
-  start: {0m, 0m};
-  end: {10m, 0m};
+Room {
+    id: "living";
+    label: "Living-Room";
+    size: [400, 300];
+    position: [0, 250];
 }
 
-Wall {
-  id: "east_wall";
-  start: {10m, 0m};
-  end: {10m, 8m};
+Room {
+    id: "bathroom";
+    label: "Bathroom";
+    size: [200, 150];
+    position: [300, 0];
 }
 
-Wall {
-  id: "south_wall";
-  start: {0m, 8m};
-  end: {10m, 8m};
-}
-
-Wall {
-  id: "west_wall";
-  start: {0m, 0m};
-  end: {0m, 8m};
-}
-
-Door {
-  id: "main_door";
-  wall: "south_wall";
-  position: {5m, 8m};
-  width: 1m;
+Room {
+    id: "kitchen";
+    label: "kitchen";
+    size: [300, 100];
+    position: [300, 150];
 }
 
 Window {
-  id: "living_window";
-  wall: "east_wall";
-  position: {10m, 4m};
-  width: 2m;
+    id: "window_east";
+    position: [0, 100];
+    width: 10;
+    height: 40;
+}
+
+// Bed
+Bed {
+    id: "bed";
+    position: [100, 10];
+    width: 100;
+    height: 150;
+}
+
+// Door
+Door {
+    id: "bedroom_door";
+    position: [70, 250];
+    width: 40;
+    height: 15;
+    direction: "up";
+}
+
+// Bedside Table
+Table {
+    id: "bedside_table";
+    position: [25, 10];
+    width: 50;
+    height: 50;
+}
+
+Chair {
+    id: "sofa";
+    position: [35, 70];
+    width: 30;
+    height: 15;
+}
+
+Stairs {
+    id: "stairs";
+    position: [400, 400];
+    width: 30;
+    height: 15;
+}
+
+Elevator {
+    id: "elevator";
+    position: [500, 500];
+    width: 30;
+    height: 15;
 }`)
   const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null)
   const [activeTab, setActiveTab] = useState<string>("view")
@@ -79,6 +118,85 @@ Window {
       setIsLoading(false)
     }
   }
+
+  // Handle updates from the editor
+  const handleEditorUpdate = (data: FloorPlanData) => {
+    setFloorPlanData(data)
+
+    // Generate DSL code from the floor plan data
+    const generatedDSL = generateDslCode(data)
+    setDslCode(generatedDSL)
+  }
+
+  // Function to generate DSL code from FloorPlanData
+  const generateDslCode = (data: FloorPlanData): string => {
+    if (!data || !data.elements || data.elements.length === 0) return "";
+
+    let code = "# size: 1000 x 1000\n\n";
+
+    data.elements.forEach(element => {
+      switch (element.type) {
+        case "room":
+          code += `Room {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.label) code += `    label: "${element.label}";\n`;
+          if (element.position && element.size) {
+            code += `    size: [${element.size[0]}, ${element.size[1]}];\n`;
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          code += `}\n\n`;
+          break;
+        case "wall":
+          code += `Wall {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.start && element.end) {
+            code += `    start: [${element.start[0]}, ${element.start[1]}];\n`;
+            code += `    end: [${element.end[0]}, ${element.end[1]}];\n`;
+          }
+          code += `}\n\n`;
+          break;
+        case "door":
+          code += `Door {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          if (element.direction) code += `    direction: "${element.direction}";\n`;
+          code += `}\n\n`;
+          break;
+        case "window":
+          code += `Window {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          code += `}\n\n`;
+          break;
+        case "bed":
+        case "table":
+        case "chair":
+        case "stairs":
+        case "elevator":
+          // Capitalize first letter for type name
+          const typeName = element.type.charAt(0).toUpperCase() + element.type.slice(1);
+          code += `${typeName} {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          code += `}\n\n`;
+          break;
+      }
+    });
+
+    return code;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -144,7 +262,7 @@ Window {
                       <FloorPlanViewer floorPlanData={floorPlanData} />
                     </TabsContent>
                     <TabsContent value="edit" className="mt-0 h-full">
-                      <FloorPlanEditor floorPlanData={floorPlanData} onUpdate={(data) => setFloorPlanData(data)} />
+                      <FloorPlanEditor floorPlanData={floorPlanData} onUpdate={handleEditorUpdate} />
                     </TabsContent>
                   </div>
                 </Tabs>

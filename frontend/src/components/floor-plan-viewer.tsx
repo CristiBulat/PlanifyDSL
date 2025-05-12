@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { FloorPlanData } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react"
+import { ZoomIn, ZoomOut, Maximize, FileCode } from "lucide-react"
 
 interface FloorPlanViewerProps {
   floorPlanData: FloorPlanData | null
@@ -12,6 +12,7 @@ interface FloorPlanViewerProps {
 export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps) {
   const [scale, setScale] = useState<number>(1) // Scale factor for SVG
   const [timestamp, setTimestamp] = useState<number>(Date.now()); // Added for cache busting
+  const [showXml, setShowXml] = useState<boolean>(false); // Toggle for XML view
 
   // Update timestamp when floorPlanData changes
   useEffect(() => {
@@ -31,6 +32,79 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
   const handleResetZoom = () => {
     setScale(1)
   }
+
+  const toggleView = () => {
+    setShowXml(!showXml);
+  }
+
+  // Function to generate DSL code from FloorPlanData
+  const generateDslCode = (data: FloorPlanData): string => {
+    if (!data || !data.elements || data.elements.length === 0) return "";
+
+    let code = "# size: 1000 x 1000\n\n";
+
+    data.elements.forEach(element => {
+      switch (element.type) {
+        case "room":
+          code += `Room {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.label) code += `    label: "${element.label}";\n`;
+          if (element.position && element.size) {
+            code += `    size: [${element.size[0]}, ${element.size[1]}];\n`;
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          code += `}\n\n`;
+          break;
+        case "wall":
+          code += `Wall {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.start && element.end) {
+            code += `    start: [${element.start[0]}, ${element.start[1]}];\n`;
+            code += `    end: [${element.end[0]}, ${element.end[1]}];\n`;
+          }
+          code += `}\n\n`;
+          break;
+        case "door":
+          code += `Door {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          if (element.direction) code += `    direction: "${element.direction}";\n`;
+          code += `}\n\n`;
+          break;
+        case "window":
+          code += `Window {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          code += `}\n\n`;
+          break;
+        case "bed":
+        case "table":
+        case "chair":
+        case "stairs":
+        case "elevator":
+          const typeName = element.type.charAt(0).toUpperCase() + element.type.slice(1);
+          code += `${typeName} {\n`;
+          code += `    id: "${element.id}";\n`;
+          if (element.position) {
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+          }
+          if (element.width) code += `    width: ${element.width};\n`;
+          if (element.height) code += `    height: ${element.height};\n`;
+          code += `}\n\n`;
+          break;
+      }
+    });
+
+    return code;
+  };
 
   return (
     <div className="relative h-full">
@@ -62,6 +136,9 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
       ) : (
         <div className="overflow-auto border rounded-md bg-white h-[500px]">
           <div className="absolute top-2 right-2 flex gap-1 z-10">
+            <Button variant="outline" size="icon" onClick={toggleView} className="h-8 w-8 bg-white">
+              <FileCode className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="icon" onClick={handleZoomIn} className="h-8 w-8 bg-white">
               <ZoomIn className="h-4 w-4" />
             </Button>
@@ -73,14 +150,18 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
             </Button>
           </div>
           <div className="min-h-full overflow-auto">
-            {floorPlanData.svg_url && (
-              <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: "transform 0.2s" }}>
-                <img
-                  src={`http://localhost:5001${floorPlanData.svg_url}?t=${timestamp}`}
-                  alt="Floor Plan" 
-                  className="min-w-full min-h-full"
-                />
-              </div>
+            {showXml ? (
+              <pre className="text-xs p-4 font-mono overflow-auto whitespace-pre">{generateDslCode(floorPlanData)}</pre>
+            ) : (
+              floorPlanData.svg_url && (
+                <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: "transform 0.2s" }}>
+                  <img
+                    src={`http://localhost:5001${floorPlanData.svg_url}?t=${timestamp}`}
+                    alt="Floor Plan"
+                    className="min-w-full min-h-full"
+                  />
+                </div>
+              )
             )}
           </div>
         </div>
