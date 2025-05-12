@@ -74,3 +74,31 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Floor Plan Editor Styles */
+.selected-element {
+  stroke: #3b82f6 !important;
+  stroke-width: 3px !important;
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Make SVG elements interactive */
+[data-id] {
+  cursor: pointer;
+}
+
+/* Highlight elements on hover */
+[data-id]:hover {
+  stroke: #60a5fa !important;
+  stroke-width: 2px !important;
+}
+
+/* Add cursor styles for different edit modes */
+.edit-mode-select [data-id] {
+  cursor: move;
+}
+
+.edit-mode-add {
+  cursor: crosshair;
+}

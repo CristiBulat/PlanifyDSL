@@ -11,15 +11,28 @@ interface FloorPlanViewerProps {
 
 export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps) {
   const [scale, setScale] = useState<number>(1) // Scale factor for SVG
-  const [timestamp, setTimestamp] = useState<number>(Date.now()); // Added for cache busting
-  const [showXml, setShowXml] = useState<boolean>(false); // Toggle for XML view
+  const [timestamp, setTimestamp] = useState<number>(Date.now()) // Added for cache busting
+  const [showXml, setShowXml] = useState<boolean>(false) // Toggle for XML view
+  const [svgContent, setSvgContent] = useState<string>("")
 
   // Update timestamp when floorPlanData changes
   useEffect(() => {
     if (floorPlanData) {
-      setTimestamp(Date.now());
+      setTimestamp(Date.now())
     }
-  }, [floorPlanData]);
+  }, [floorPlanData])
+
+  // Fetch SVG content when URL or timestamp changes
+  useEffect(() => {
+    if (!showXml && floorPlanData?.svg_url) {
+      fetch(`http://localhost:5001${floorPlanData.svg_url}?t=${timestamp}`)
+        .then(response => response.text())
+        .then(text => {
+          setSvgContent(text)
+        })
+        .catch(error => console.error("Error fetching SVG:", error))
+    }
+  }, [floorPlanData?.svg_url, timestamp, showXml])
 
   const handleZoomIn = () => {
     setScale((prev) => prev * 1.2)
@@ -34,77 +47,77 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
   }
 
   const toggleView = () => {
-    setShowXml(!showXml);
+    setShowXml(!showXml)
   }
 
   // Function to generate DSL code from FloorPlanData
   const generateDslCode = (data: FloorPlanData): string => {
-    if (!data || !data.elements || data.elements.length === 0) return "";
+    if (!data || !data.elements || data.elements.length === 0) return ""
 
-    let code = "# size: 1000 x 1000\n\n";
+    let code = "# size: 1000 x 1000\n\n"
 
     data.elements.forEach(element => {
       switch (element.type) {
         case "room":
-          code += `Room {\n`;
-          code += `    id: "${element.id}";\n`;
-          if (element.label) code += `    label: "${element.label}";\n`;
+          code += `Room {\n`
+          code += `    id: "${element.id}";\n`
+          if (element.label) code += `    label: "${element.label}";\n`
           if (element.position && element.size) {
-            code += `    size: [${element.size[0]}, ${element.size[1]}];\n`;
-            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+            code += `    size: [${element.size[0]}, ${element.size[1]}];\n`
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`
           }
-          code += `}\n\n`;
-          break;
+          code += `}\n\n`
+          break
         case "wall":
-          code += `Wall {\n`;
-          code += `    id: "${element.id}";\n`;
+          code += `Wall {\n`
+          code += `    id: "${element.id}";\n`
           if (element.start && element.end) {
-            code += `    start: [${element.start[0]}, ${element.start[1]}];\n`;
-            code += `    end: [${element.end[0]}, ${element.end[1]}];\n`;
+            code += `    start: [${element.start[0]}, ${element.start[1]}];\n`
+            code += `    end: [${element.end[0]}, ${element.end[1]}];\n`
           }
-          code += `}\n\n`;
-          break;
+          code += `}\n\n`
+          break
         case "door":
-          code += `Door {\n`;
-          code += `    id: "${element.id}";\n`;
+          code += `Door {\n`
+          code += `    id: "${element.id}";\n`
           if (element.position) {
-            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
-          if (element.direction) code += `    direction: "${element.direction}";\n`;
-          code += `}\n\n`;
-          break;
+          if (element.width) code += `    width: ${element.width};\n`
+          if (element.height) code += `    height: ${element.height};\n`
+          if (element.direction) code += `    direction: "${element.direction}";\n`
+          code += `}\n\n`
+          break
         case "window":
-          code += `Window {\n`;
-          code += `    id: "${element.id}";\n`;
+          code += `Window {\n`
+          code += `    id: "${element.id}";\n`
           if (element.position) {
-            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
-          code += `}\n\n`;
-          break;
+          if (element.width) code += `    width: ${element.width};\n`
+          if (element.height) code += `    height: ${element.height};\n`
+          code += `}\n\n`
+          break
         case "bed":
         case "table":
         case "chair":
         case "stairs":
         case "elevator":
-          const typeName = element.type.charAt(0).toUpperCase() + element.type.slice(1);
-          code += `${typeName} {\n`;
-          code += `    id: "${element.id}";\n`;
+          const typeName = element.type.charAt(0).toUpperCase() + element.type.slice(1)
+          code += `${typeName} {\n`
+          code += `    id: "${element.id}";\n`
           if (element.position) {
-            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
+            code += `    position: [${element.position[0]}, ${element.position[1]}];\n`
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
-          code += `}\n\n`;
-          break;
+          if (element.width) code += `    width: ${element.width};\n`
+          if (element.height) code += `    height: ${element.height};\n`
+          code += `}\n\n`
+          break
       }
-    });
+    })
 
-    return code;
-  };
+    return code
+  }
 
   return (
     <div className="relative h-full">
@@ -153,13 +166,9 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
             {showXml ? (
               <pre className="text-xs p-4 font-mono overflow-auto whitespace-pre">{generateDslCode(floorPlanData)}</pre>
             ) : (
-              floorPlanData.svg_url && (
+              svgContent && (
                 <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: "transform 0.2s" }}>
-                  <img
-                    src={`http://localhost:5001${floorPlanData.svg_url}?t=${timestamp}`}
-                    alt="Floor Plan"
-                    className="min-w-full min-h-full"
-                  />
+                  <div dangerouslySetInnerHTML={{ __html: svgContent }} />
                 </div>
               )
             )}
