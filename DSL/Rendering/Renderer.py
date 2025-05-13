@@ -335,7 +335,7 @@ class Renderer:
 
     def _render_room_label(self, room, exporter, offset_x=0, offset_y=0):
         """
-        Render a room's label
+        Render a room's label with realistic area measurements
 
         Args:
             room: Room object
@@ -354,8 +354,20 @@ class Renderer:
 
         # Add room label if provided
         if room.label:
+            # Format area value based on size
+            area_value = room.area
+            area_unit = "m²"
+
+            # Select appropriate unit for the area
+            if area_value < 1:
+                area_value *= 10000  # Convert to cm²
+                area_unit = "cm²"
+            elif area_value > 1000:
+                area_value /= 1000  # Convert to km²
+                area_unit = "km²"
+
             # Add room name with area information
-            area_text = f"({room.area:.1f} m²)" if self.show_dimensions else ""
+            area_text = f"({area_value:.1f} {area_unit})" if self.show_dimensions else ""
             label_text = f"{room.label}" if not area_text else f"{room.label} {area_text}"
 
             exporter.add_text(
@@ -368,18 +380,21 @@ class Renderer:
 
             # If showing dimensions, add width and height labels along the walls
             if self.show_dimensions and width > 100 and height > 100:
-                # Width dimension on top
+                # Apply the same scale factor as used in area calculation
+                scale_factor = 0.01
+
+                # Width dimension on top - using realistic measurements
                 exporter.add_text(
-                    f"{room.width:.1f}",
+                    f"{room.width * scale_factor:.1f}m",
                     x + width / 2,
                     y - 5,
                     font_size=style['font_size'] * 0.8,
                     fill=style['text_color']
                 )
 
-                # Height dimension on left
+                # Height dimension on left - using realistic measurements
                 exporter.add_text(
-                    f"{room.height:.1f}",
+                    f"{room.height * scale_factor:.1f}m",
                     x - 10,
                     y + height / 2,
                     font_size=style['font_size'] * 0.8,

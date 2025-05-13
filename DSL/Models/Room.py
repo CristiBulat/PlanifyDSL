@@ -32,8 +32,11 @@ class Room:
 
     @property
     def area(self):
-        """Calculate area of the room in square units"""
-        return round(self.width * self.height, 2)
+        """Calculate area of the room in square meters with realistic scaling"""
+        # Apply a scaling factor to get realistic values
+        # Assuming units are in meters but need to be scaled down
+        scale_factor = 0.01  # Adjust this value to get realistic areas
+        return round(self.width * self.height * scale_factor, 2)
 
     def set_size(self, width, height):
         """

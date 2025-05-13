@@ -29,8 +29,8 @@ class LayoutManager:
         self.max_height = 1000
 
         # Minimum door dimensions (only used if door has no dimensions)
-        self.min_door_width = 10
-        self.min_door_height = 10
+        self.min_door_width = 1
+        self.min_door_height = 1
 
         # Use header dimensions if available
         if self.floor_plan.header:
