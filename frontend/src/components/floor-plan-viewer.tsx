@@ -10,19 +10,19 @@ interface FloorPlanViewerProps {
 }
 
 export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps) {
-  const [scale, setScale] = useState<number>(1) // Scale factor for SVG
-  const [timestamp, setTimestamp] = useState<number>(Date.now()) // Added for cache busting
-  const [showXml, setShowXml] = useState<boolean>(false) // Toggle for XML view
+  const [scale, setScale] = useState<number>(0.694444)
+  const [autoScale, setAutoScale] = useState<number>(1)
+  const [timestamp, setTimestamp] = useState<number>(Date.now())
+  const [showXml, setShowXml] = useState<boolean>(false)
   const [svgContent, setSvgContent] = useState<string>("")
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Update timestamp when floorPlanData changes
   useEffect(() => {
     if (floorPlanData) {
       setTimestamp(Date.now())
     }
   }, [floorPlanData])
 
-  // Fetch SVG content when URL or timestamp changes
   useEffect(() => {
     if (!showXml && floorPlanData?.svg_url) {
       fetch(`http://localhost:5001${floorPlanData.svg_url}?t=${timestamp}`)
@@ -34,6 +34,35 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
     }
   }, [floorPlanData?.svg_url, timestamp, showXml])
 
+  // Helper: adaugă padding la viewBox-ul SVG-ului
+  function addPaddingToSvg(svg: string, paddingPercent: number = 0.05): string {
+    const viewBoxMatch = svg.match(/viewBox="([\d\.\- ]+)"/);
+    if (!viewBoxMatch) return svg;
+    const [minX, minY, width, height] = viewBoxMatch[1].split(" ").map(Number);
+    const padX = width * paddingPercent;
+    const padY = height * paddingPercent;
+    const newViewBox = `${minX - padX} ${minY - padY} ${width + 2 * padX} ${height + 2 * padY}`;
+    return svg.replace(/viewBox="[\d\.\- ]+"/, `viewBox="${newViewBox}"`);
+  }
+
+  // Auto-fit zoom logic
+  useEffect(() => {
+    if (!svgContent || !containerRef.current) return;
+    // Extrage viewBox-ul
+    const viewBoxMatch = svgContent.match(/viewBox="([\d\.\- ]+)"/);
+    if (!viewBoxMatch) return;
+    const [minX, minY, width, height] = viewBoxMatch[1].split(" ").map(Number);
+    const container = containerRef.current;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    // Calculează scale-ul pentru fit cu padding 5%
+    const scaleX = containerWidth / (width * 1.1); // 10% extra pentru padding vizual
+    const scaleY = containerHeight / (height * 1.1);
+    const fitScale = Math.min(scaleX, scaleY, 1); // nu da zoom in peste 1
+    setScale(fitScale);
+    setAutoScale(fitScale);
+  }, [svgContent, floorPlanData]);
+
   const handleZoomIn = () => {
     setScale((prev) => prev * 1.2)
   }
@@ -43,14 +72,13 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
   }
 
   const handleResetZoom = () => {
-    setScale(1)
+    setScale(autoScale)
   }
 
   const toggleView = () => {
     setShowXml(!showXml)
   }
 
-  // Function to generate DSL code from FloorPlanData
   const generateDslCode = (data: FloorPlanData): string => {
     if (!data || !data.elements || data.elements.length === 0) return ""
 
@@ -120,10 +148,10 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
   }
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full" ref={containerRef}>
       {!floorPlanData ? (
         <div className="flex flex-col items-center justify-center h-[500px] bg-white rounded-md border border-dashed border-gray-300">
-          <div className="text-gray-400 mb-2">
+          <div className="mb-2 text-gray-400">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M3 7.8V3H7.8M16.2 3H21V7.8M21 16.2V21H16.2M7.8 21H3V16.2"
@@ -141,34 +169,34 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
               />
             </svg>
           </div>
-          <p className="text-gray-500 text-center">Parse your DSL code to see the floor plan</p>
-          <p className="text-gray-400 text-sm text-center mt-1">
+          <p className="text-center text-gray-500">Parse your DSL code to see the floor plan</p>
+          <p className="mt-1 text-sm text-center text-gray-400">
             Click the "Parse & Render" button to visualize your design
           </p>
         </div>
       ) : (
         <div className="overflow-auto border rounded-md bg-white h-[500px]">
-          <div className="absolute top-2 right-2 flex gap-1 z-10">
-            <Button variant="outline" size="icon" onClick={toggleView} className="h-8 w-8 bg-white">
-              <FileCode className="h-4 w-4" />
+          <div className="absolute z-10 flex gap-1 top-2 right-2">
+            <Button variant="outline" size="icon" onClick={toggleView} className="w-8 h-8 bg-white">
+              <FileCode className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomIn} className="h-8 w-8 bg-white">
-              <ZoomIn className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={handleZoomIn} className="w-8 h-8 bg-white">
+              <ZoomIn className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleZoomOut} className="h-8 w-8 bg-white">
-              <ZoomOut className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={handleZoomOut} className="w-8 h-8 bg-white">
+              <ZoomOut className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleResetZoom} className="h-8 w-8 bg-white">
-              <Maximize className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={handleResetZoom} className="w-8 h-8 bg-white">
+              <Maximize className="w-4 h-4" />
             </Button>
           </div>
           <div className="min-h-full overflow-auto">
             {showXml ? (
-              <pre className="text-xs p-4 font-mono overflow-auto whitespace-pre">{generateDslCode(floorPlanData)}</pre>
+              <pre className="p-4 overflow-auto font-mono text-xs whitespace-pre">{generateDslCode(floorPlanData)}</pre>
             ) : (
               svgContent && (
                 <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: "transform 0.2s" }}>
-                  <div dangerouslySetInnerHTML={{ __html: svgContent }} />
+                  <div dangerouslySetInnerHTML={{ __html: addPaddingToSvg(svgContent, 0.05) }} />
                 </div>
               )
             )}
