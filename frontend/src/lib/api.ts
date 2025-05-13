@@ -4,7 +4,6 @@ export async function parseFloorPlan(dslCode: string): Promise<FloorPlanData> {
   console.log("Sending DSL code to backend:", dslCode.substring(0, 100) + "...")
 
   try {
-    // First, validate that we have some code to send
     if (!dslCode || dslCode.trim() === "") {
       throw new Error("No DSL code provided")
     }
@@ -26,7 +25,6 @@ export async function parseFloorPlan(dslCode: string): Promise<FloorPlanData> {
     const data = await response.json()
     console.log("Parsed data:", data)
 
-    // Validate the response structure
     if (!data.elements || !Array.isArray(data.elements)) {
       throw new Error("Invalid response format from server")
     }

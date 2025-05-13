@@ -12,18 +12,15 @@ interface CodeEditorProps {
 export default function CodeEditor({ value, onChange }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Handle tab key for indentation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab") {
       e.preventDefault()
       const start = e.currentTarget.selectionStart
       const end = e.currentTarget.selectionEnd
 
-      // Insert tab at cursor position
       const newValue = value.substring(0, start) + "  " + value.substring(end)
       onChange(newValue)
 
-      // Move cursor after the inserted tab
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2
@@ -32,7 +29,6 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
     }
   }
 
-  // Auto-resize textarea based on content
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"

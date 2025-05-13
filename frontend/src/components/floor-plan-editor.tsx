@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import type { FloorPlanData, FloorPlanElement } from "@/lib/types"
-import { Trash2, MousePointer, Plus, ZoomIn, ZoomOut, Maximize, Save } from "lucide-react"
+import { Trash2, MousePointer, Plus, ZoomIn, ZoomOut, Maximize, Save, X, Download } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { parseFloorPlan } from "@/lib/api"
 
@@ -19,14 +19,15 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const [selectedElement, setSelectedElement] = useState<string | null>(null)
   const [editMode, setEditMode] = useState<"select" | "add">("select")
   const [addElementType, setAddElementType] = useState<string>("wall")
-  const [scale, setScale] = useState<number>(1) // Scale factor for SVG
-  const [timestamp, setTimestamp] = useState<number>(Date.now()) // For cache busting
+  const [scale, setScale] = useState<number>(0.694444)
+  const [timestamp, setTimestamp] = useState<number>(Date.now())
   const [dragging, setDragging] = useState<boolean>(false)
   const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null)
   const [svgContent, setSvgContent] = useState<string>("")
 
-  // Local copy of floor plan data for editing
   const [localFloorPlanData, setLocalFloorPlanData] = useState<FloorPlanData | null>(floorPlanData)
+
+  const [showInspector, setShowInspector] = useState<boolean>(false);
 
   useEffect(() => {
     setLocalFloorPlanData(floorPlanData)
@@ -35,7 +36,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     }
   }, [floorPlanData])
 
-  // Fetch SVG content when URL or timestamp changes
   useEffect(() => {
     if (localFloorPlanData?.svg_url) {
       fetch(`http://localhost:5001${localFloorPlanData.svg_url}?t=${timestamp}`)
@@ -47,22 +47,18 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     }
   }, [localFloorPlanData?.svg_url, timestamp])
 
-  // Highlight selected element
   useEffect(() => {
     if (!svgContent || !selectedElement || !svgContainerRef.current) return;
 
-    // Allow a bit of time for the SVG to be rendered in the DOM
     setTimeout(() => {
       const svgContainer = svgContainerRef.current;
       if (!svgContainer) return;
 
-      // First, remove the selected class from all elements
       const elements = svgContainer.querySelectorAll('[data-id]');
       elements.forEach(el => {
         el.classList.remove('selected-element');
       });
 
-      // Then add it to the selected element
       const selectedEl = svgContainer.querySelector(`[data-id="${selectedElement}"]`);
       if (selectedEl) {
         selectedEl.classList.add('selected-element');
@@ -70,22 +66,21 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     }, 100);
   }, [selectedElement, svgContent]);
 
-  // Function to get cursor position in SVG coordinates
+  useEffect(() => {
+    setShowInspector(editMode === "select" && !!selectedElement);
+  }, [editMode, selectedElement]);
+
   const getSvgCoordinates = (event: React.MouseEvent): {x: number, y: number} | null => {
     if (!svgContainerRef.current) return null;
 
     const svgElement = svgContainerRef.current.querySelector('svg');
     if (!svgElement) return null;
 
-    // Get the SVG's bounding rectangle
     const rect = svgElement.getBoundingClientRect();
 
-    // Calculate click position relative to SVG
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Apply scale factor and convert from pixels to logical units
-    // Assuming your SVG uses a scale factor of 10 (10px = 1 logical unit)
     return {
       x: (x / scale) / 10,
       y: (y / scale) / 10
@@ -99,11 +94,9 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     if (!coords) return;
 
     if (editMode === "select") {
-      // Find clicked element by checking the target and its parent elements
       let target = e.target as Element;
       let elementId: string | null = null;
 
-      // Check if the target or any of its parents has a data-id attribute
       while (target && !elementId && target !== svgContainerRef.current) {
         const dataId = target.getAttribute('data-id');
         if (dataId) {
@@ -116,7 +109,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
       setSelectedElement(elementId);
     } else if (editMode === "add") {
-      // Add new element at the clicked coordinates
       addNewElement(coords.x, coords.y);
     }
   }
@@ -124,11 +116,9 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!selectedElement || editMode !== "select" || !svgContainerRef.current) return;
 
-    // Find the target element
     let target = e.target as Element;
     let found = false;
 
-    // Check if we clicked on the selected element or its children
     while (target && !found && target !== svgContainerRef.current) {
       if (target.getAttribute('data-id') === selectedElement) {
         found = true;
@@ -146,7 +136,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     setDragging(true);
     setDragStart(coords);
 
-    // Prevent default to avoid text selection while dragging
     e.preventDefault();
   }
 
@@ -156,23 +145,33 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     const coords = getSvgCoordinates(e);
     if (!coords) return;
 
-    // Calculate the distance moved
     const deltaX = coords.x - dragStart.x;
     const deltaY = coords.y - dragStart.y;
 
-    // Update the element position
     const updatedElements = localFloorPlanData.elements.map(element => {
       if (element.id === selectedElement) {
         if (element.position) {
+          const newPos: [number, number] = [
+            (element.position[0] + deltaX),
+            (element.position[1] + deltaY)
+          ];
           return {
             ...element,
-            position: [element.position[0] + deltaX, element.position[1] + deltaY]
+            position: newPos
           };
         } else if (element.start && element.end) {
+          const newStart: [number, number] = [
+            (element.start[0] + deltaX),
+            (element.start[1] + deltaY)
+          ];
+          const newEnd: [number, number] = [
+            (element.end[0] + deltaX),
+            (element.end[1] + deltaY)
+          ];
           return {
             ...element,
-            start: [element.start[0] + deltaX, element.start[1] + deltaY],
-            end: [element.end[0] + deltaX, element.end[1] + deltaY]
+            start: newStart,
+            end: newEnd
           };
         }
       }
@@ -184,16 +183,13 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       elements: updatedElements
     });
 
-    // Reset drag start position
     setDragStart(coords);
   }
 
   const handleMouseUp = () => {
     if (dragging && localFloorPlanData) {
-      // Generate DSL code from the current floor plan data
       const dslCode = generateDslCode(localFloorPlanData);
 
-      // Use parseFloorPlan to update the SVG after dragging
       parseFloorPlan(dslCode)
         .then(data => {
           if (data && localFloorPlanData) {
@@ -219,51 +215,50 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       type: addElementType as any,
     };
 
-    // Set default properties based on element type
     switch (addElementType) {
       case "room":
         newElement.position = [x, y];
-        newElement.size = [5, 4]; // Default size
+        newElement.size = [5, 4];
         break;
       case "wall":
         newElement.start = [x, y];
-        newElement.end = [x + 5, y]; // Default length
+        newElement.end = [x + 5, y];
         break;
       case "door":
         newElement.position = [x, y];
-        newElement.width = 1; // Default width
-        newElement.height = 0.5; // Default height
-        newElement.direction = "right"; // Default direction
+        newElement.width = 1;
+        newElement.height = 0.5;
+        newElement.direction = "right";
         break;
       case "window":
         newElement.position = [x, y];
-        newElement.width = 1.5; // Default width
-        newElement.height = 0.3; // Default height
+        newElement.width = 1.5;
+        newElement.height = 0.3;
         break;
       case "bed":
         newElement.position = [x, y];
-        newElement.width = 3; // Default width
-        newElement.height = 5; // Default height
+        newElement.width = 3;
+        newElement.height = 5;
         break;
       case "table":
         newElement.position = [x, y];
-        newElement.width = 2; // Default width
-        newElement.height = 2; // Default height
+        newElement.width = 2;
+        newElement.height = 2;
         break;
       case "chair":
         newElement.position = [x, y];
-        newElement.width = 1; // Default width
-        newElement.height = 1; // Default height
+        newElement.width = 1;
+        newElement.height = 1;
         break;
       case "stairs":
         newElement.position = [x, y];
-        newElement.width = 2; // Default width
-        newElement.height = 4; // Default height
+        newElement.width = 2;
+        newElement.height = 4;
         break;
       case "elevator":
         newElement.position = [x, y];
-        newElement.width = 2; // Default width
-        newElement.height = 2; // Default height
+        newElement.width = 2;
+        newElement.height = 2;
         break;
     }
 
@@ -275,13 +270,10 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     setLocalFloorPlanData(updatedData);
     setSelectedElement(newElement.id);
 
-    // Generate DSL code from the updated data
     const dslCode = generateDslCode(updatedData);
 
-    // Use parseFloorPlan to update the SVG immediately
     parseFloorPlan(dslCode)
       .then(data => {
-        // Update with the new SVG URL but keep our local element data
         if (data && localFloorPlanData) {
           setLocalFloorPlanData(prev => {
             if (prev) {
@@ -297,7 +289,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       })
       .catch(err => console.error("Error updating floor plan after adding element:", err));
 
-    // Switch back to select mode after adding
     setEditMode("select");
   }
 
@@ -313,8 +304,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
     setLocalFloorPlanData(updatedData);
     setSelectedElement(null);
-
-    // Generate DSL code and update SVG
+    
     const dslCode = generateDslCode(updatedData);
     parseFloorPlan(dslCode)
       .then(data => {
@@ -339,13 +329,10 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
     const updatedElements = localFloorPlanData.elements.map((element) => {
       if (element.id === selectedElement) {
-        // Handle different property types
         if (property.includes(".")) {
-          // Handle nested properties like 'position.0'
           const [mainProp, index] = property.split(".");
 
           if (mainProp && !element[mainProp as keyof FloorPlanElement]) {
-            // Initialize the array if it doesn't exist
             const updatedElement = {...element} as any;
             updatedElement[mainProp] = [];
             element = updatedElement;
@@ -359,13 +346,11 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
             return updatedElement;
           }
         } else if (property === "width" || property === "height") {
-          // Handle numeric properties
           return {
             ...element,
             [property]: Number.parseFloat(value)
           };
         } else {
-          // Handle other properties
           return {
             ...element,
             [property]: value
@@ -394,9 +379,8 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     if (!element) return null;
 
     return (
-      <div className="space-y-4 mt-4">
-        <h3 className="font-medium text-sm text-gray-500 uppercase tracking-wider">Properties</h3>
-
+      <div className="mt-4 space-y-4">
+        <h3 className="text-sm font-medium tracking-wider text-gray-500 uppercase">Properties</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-700">ID</label>
@@ -445,7 +429,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   className="h-8"
                 />
               </div>
-              <div className="space-y-1 col-span-2">
+              <div className="col-span-2 space-y-1">
                 <label className="text-xs font-medium text-gray-700">Label</label>
                 <Input
                   value={element.label || ""}
@@ -537,7 +521,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
               </div>
 
               {element.type === "door" && (
-                <div className="space-y-1 col-span-2">
+                <div className="col-span-2 space-y-1">
                   <label className="text-xs font-medium text-gray-700">Direction</label>
                   <Select
                     value={element.direction || "right"}
@@ -558,11 +542,16 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
             </>
           )}
         </div>
-
-        <Button variant="destructive" size="sm" onClick={handleDeleteElement} className="mt-2 w-full">
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete Element
-        </Button>
+        <div className="flex flex-col gap-2 mt-2">
+          <Button variant="destructive" size="sm" onClick={handleDeleteElement}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete Element
+          </Button>
+          <Button variant="default" size="sm" onClick={handleSaveChanges} className="text-white bg-green-600 hover:bg-green-700">
+            <Save className="w-4 h-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
       </div>
     );
   }
@@ -582,17 +571,12 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const handleSaveChanges = async () => {
     if (!localFloorPlanData) return;
 
-    // Generate DSL code from the current floor plan data
     const dslCode = generateDslCode(localFloorPlanData);
 
     try {
-      // Parse the DSL code to get updated SVG and normalized data
       const updatedData = await parseFloorPlan(dslCode);
-
-      // Update the parent component with the new data
       onUpdate(updatedData);
 
-      // Update local state
       setLocalFloorPlanData(updatedData);
       setTimestamp(Date.now());
     } catch (error) {
@@ -601,7 +585,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     }
   }
 
-  // Function to generate DSL code from FloorPlanData
   const generateDslCode = (data: FloorPlanData): string => {
     if (!data || !data.elements || data.elements.length === 0) return "";
 
@@ -654,7 +637,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
         case "chair":
         case "stairs":
         case "elevator":
-          // Capitalize first letter for the DSL
           const typeName = element.type.charAt(0).toUpperCase() + element.type.slice(1);
           code += `${typeName} {\n`;
           code += `    id: "${element.id}";\n`;
@@ -671,11 +653,53 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     return code;
   };
 
+  function downloadSvg() {
+    if (!svgContent) return;
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "floorplan.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  
+  function downloadPng() {
+    if (!svgContent) return;
+    const svg = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(svg);
+    const img = new window.Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(function (blob) {
+          if (blob) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "floorplan.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          }
+        }, "image/png");
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
   return (
     <div className="relative">
       {!localFloorPlanData ? (
         <div className="flex flex-col items-center justify-center h-[500px] bg-white rounded-md border border-dashed border-gray-300">
-          <div className="text-gray-400 mb-2">
+          <div className="mb-2 text-gray-400">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M3 7.8V3H7.8M16.2 3H21V7.8M21 16.2V21H16.2M7.8 21H3V16.2"
@@ -693,13 +717,13 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
               />
             </svg>
           </div>
-          <p className="text-gray-500 text-center">Parse your DSL code to use the editor</p>
-          <p className="text-gray-400 text-sm text-center mt-1">Click the "Parse & Render" button to start editing</p>
+          <p className="text-center text-gray-500">Parse your DSL code to use the editor</p>
+          <p className="mt-1 text-sm text-center text-gray-400">Click the "Parse & Render" button to start editing</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-3 border rounded-md bg-white">
-            <div className="p-2 border-b flex justify-between items-center">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
+          <div className="bg-white border rounded-md">
+            <div className="flex items-center justify-between p-2 border-b">
               <div className="flex gap-2">
                 <Button
                   variant={editMode === "select" ? "default" : "outline"}
@@ -707,7 +731,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   onClick={() => setEditMode("select")}
                   className="h-8"
                 >
-                  <MousePointer className="h-4 w-4 mr-1" />
+                  <MousePointer className="w-4 h-4 mr-1" />
                   Select
                 </Button>
                 <Button
@@ -716,7 +740,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   onClick={() => setEditMode("add")}
                   className="h-8"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="w-4 h-4 mr-1" />
                   Add
                 </Button>
                 <Button
@@ -725,11 +749,10 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   onClick={handleSaveChanges}
                   className="h-8 bg-green-600 hover:bg-green-700"
                 >
-                  <Save className="h-4 w-4 mr-1" />
+                  <Save className="w-4 h-4 mr-1" />
                   Save Changes
                 </Button>
               </div>
-
               {editMode === "add" && (
                 <Select value={addElementType} onValueChange={setAddElementType}>
                   <SelectTrigger className="w-[180px] h-8">
@@ -748,22 +771,29 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   </SelectContent>
                 </Select>
               )}
-
               <div className="flex gap-1">
-                <Button variant="outline" size="icon" onClick={handleZoomIn} className="h-8 w-8">
-                  <ZoomIn className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={handleZoomIn} className="w-8 h-8">
+                  <ZoomIn className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={handleZoomOut} className="h-8 w-8">
-                  <ZoomOut className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={handleZoomOut} className="w-8 h-8">
+                  <ZoomOut className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={handleResetZoom} className="h-8 w-8">
-                  <Maximize className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={handleResetZoom} className="w-8 h-8">
+                  <Maximize className="w-4 h-4" />
                 </Button>
+                <Select onValueChange={(v) => v === "svg" ? downloadSvg() : downloadPng()}>
+                  <SelectTrigger className="flex items-center justify-center w-12 h-8 bg-white border rounded-lg">
+                    <Download className="w-8 h-8" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="svg">Download as SVG</SelectItem>
+                    <SelectItem value="png">Download as PNG</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-
             <div
-              className="min-h-[400px] overflow-auto"
+              className="min-h-[450px] h-[450px] overflow-auto"
               ref={svgContainerRef}
               onClick={handleSvgClick}
               onMouseDown={handleMouseDown}
@@ -783,24 +813,21 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 />
               )}
             </div>
-          </div>
-
-          <div>
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-medium mb-4">Element Inspector</h3>
-
-                {selectedElement ? (
-                  renderElementProperties()
-                ) : (
-                  <p className="text-gray-500 text-sm">
-                    {editMode === "select"
-                      ? "Select an element to edit its properties"
-                      : "Click on the canvas to add a new element"}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            {/* Side Popup Inspector */}
+            {showInspector && (
+              <div className="absolute right-2 top-8 z-50 w-[90vw] max-w-[260px] h-auto min-h-[320px] sm:w-[260px] sm:max-w-[260px]">
+                <div className="bg-white rounded-lg shadow-lg p-4 w-full h-auto min-h-[320px] relative border flex flex-col items-stretch">
+                  <button
+                    className="absolute text-gray-400 top-2 right-2 hover:text-gray-700"
+                    onClick={() => setSelectedElement(null)}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="mb-4 font-medium">Element Inspector</h3>
+                  {renderElementProperties()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
