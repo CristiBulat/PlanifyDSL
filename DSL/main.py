@@ -94,7 +94,7 @@ Stairs {
     id: "stairs";
     position: [400, 400];
     width: 30;
-    height: 15;tatust
+    height: 15;
 }
 
 Elevator {
