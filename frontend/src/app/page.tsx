@@ -12,88 +12,89 @@ import type { FloorPlanData, FloorPlanElement } from "@/lib/types"
 import { Loader2, Code2, Grid2X2 } from "lucide-react"
 
 export default function Home() {
-  const [dslCode, setDslCode] = useState<string>(`# size: 1000 x 1000
+  const [dslCode, setDslCode] = useState<string>(`
+    # size: 100 x 100
 
 // Bedroom
 Room {
     id: "bedroom";
     label: "Bedroom";
-    size: [300, 250];
+    size: [30, 25];  // size in meters (3000cm x 2500cm)
     position: [0, 0];
 }
 
 Room {
     id: "living";
     label: "Living-Room";
-    size: [400, 300];
-    position: [0, 250];
+    size: [40, 30];  // size in meters (4000cm x 3000cm)
+    position: [0, 25];  // position adjusted to start after the bedroom
 }
 
 Room {
     id: "bathroom";
     label: "Bathroom";
-    size: [200, 150];
-    position: [300, 0];
+    size: [20, 15];  // size in meters (2000cm x 1500cm)
+    position: [30, 0];
 }
 
 Room {
     id: "kitchen";
-    label: "kitchen";
-    size: [300, 100];
-    position: [300, 150];
+    label: "Kitchen";
+    size: [30, 10];  // size in meters (3000cm x 1000cm)
+    position: [30, 15];
 }
 
 Window {
     id: "window_east";
-    position: [0, 100];
-    width: 10;
-    height: 40;
+    position: [0, 10];  // position adjusted to be within the bounds of the room
+    width: 1;  // 10 meters (1000cm)
+    height: 4;  // 40 meters (4000cm)
 }
 
 // Bed
 Bed {
     id: "bed";
-    position: [100, 10];
-    width: 100;
-    height: 150;
+    position: [10, 1];  // position in meters (1000cm, 100cm)
+    width: 10;  // width in meters (1000cm)
+    height: 15;  // height in meters (1500cm)
 }
 
 // Door
 Door {
     id: "bedroom_door";
-    position: [70, 250];
-    width: 40;
-    height: 15;
+    position: [7, 25];  // position in meters (700cm, 2500cm)
+    width: 0.4;  // width in meters (400cm)
+    height: 0.15;  // height in meters (150cm)
     direction: "up";
 }
 
 // Bedside Table
 Table {
     id: "bedside_table";
-    position: [25, 10];
-    width: 50;
-    height: 50;
+    position: [2.5, 1];  // position in meters (250cm, 100cm)
+    width: 5;  // width in meters (500cm)
+    height: 5;  // height in meters (500cm)
 }
 
 Chair {
     id: "sofa";
-    position: [35, 70];
-    width: 30;
-    height: 15;
+    position: [3.5, 7];  // position in meters (350cm, 700cm)
+    width: 3;  // width in meters (300cm)
+    height: 1.5;  // height in meters (150cm)
 }
 
 Stairs {
     id: "stairs";
-    position: [400, 400];
-    width: 30;
-    height: 15;
+    position: [40, 40];  // position in meters (4000cm, 4000cm)
+    width: 3;  // width in meters (300cm)
+    height: 1.5;  // height in meters (150cm)
 }
 
 Elevator {
     id: "elevator";
-    position: [500, 500];
-    width: 30;
-    height: 15;
+    position: [50, 50];  // position in meters (5000cm, 5000cm)
+    width: 3;  // width in meters (300cm)
+    height: 1.5;  // height in meters (150cm)
 }`)
   const [floorPlanData, setFloorPlanData] = useState<FloorPlanData | null>(null)
   const [activeTab, setActiveTab] = useState<string>("view")
@@ -201,34 +202,34 @@ Elevator {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
-        <div className="container mx-auto py-4">
+        <div className="container py-4 mx-auto">
           <h1 className="text-2xl font-bold">2D Floor Planning Application</h1>
           <p className="text-gray-500">Design floor plans using a domain-specific language</p>
         </div>
       </header>
 
-      <main className="container mx-auto py-6 px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="container px-4 py-6 mx-auto">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Left Column: DSL Code Editor */}
           <div className="lg:col-span-1">
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <div className="flex items-center">
-                  <Code2 className="h-5 w-5 mr-2 text-gray-500" />
+                  <Code2 className="w-5 h-5 mr-2 text-gray-500" />
                   <CardTitle>DSL Code</CardTitle>
                 </div>
                 <CardDescription>Write your floor plan code using the DSL</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border rounded-md bg-gray-50">
+              <div className="border rounded-md bg-gray-50 max-h-[600px] overflow-y-auto">
                   <CodeEditor value={dslCode} onChange={handleCodeChange} />
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex items-center justify-between">
                   <Button onClick={handleParse} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Processing...
                       </>
                     ) : (
@@ -236,7 +237,7 @@ Elevator {
                     )}
                   </Button>
 
-                  {error && <div className="text-red-500 text-sm ml-2 overflow-hidden text-ellipsis">{error}</div>}
+                  {error && <div className="ml-2 overflow-hidden text-sm text-red-500 text-ellipsis">{error}</div>}
                 </div>
               </CardContent>
             </Card>
@@ -247,7 +248,7 @@ Elevator {
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <div className="flex items-center">
-                  <Grid2X2 className="h-5 w-5 mr-2 text-gray-500" />
+                  <Grid2X2 className="w-5 h-5 mr-2 text-gray-500" />
                   <CardTitle>Floor Plan</CardTitle>
                 </div>
               </CardHeader>
@@ -258,10 +259,10 @@ Elevator {
                     <TabsTrigger value="edit">Editor</TabsTrigger>
                   </TabsList>
                   <div className="bg-gray-50 rounded-lg min-h-[600px] p-4">
-                    <TabsContent value="view" className="mt-0 h-full">
+                    <TabsContent value="view" className="h-full mt-0">
                       <FloorPlanViewer floorPlanData={floorPlanData} />
                     </TabsContent>
-                    <TabsContent value="edit" className="mt-0 h-full">
+                    <TabsContent value="edit" className="h-full mt-0">
                       <FloorPlanEditor floorPlanData={floorPlanData} onUpdate={handleEditorUpdate} />
                     </TabsContent>
                   </div>
