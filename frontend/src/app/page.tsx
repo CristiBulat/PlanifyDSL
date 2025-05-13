@@ -124,7 +124,7 @@ export default function Home() {
 
       <main className="container flex flex-row flex-1 gap-6 px-4 py-6 mx-auto">
         {/* Left Column: DSL Code Editor */}
-        <div className="flex flex-col w-full max-w-md">
+        <div className="flex flex-col w-[400px] min-w-[400px] max-w-[400px]">
           <Card className="flex flex-col flex-1">
             <CardHeader className="pb-3">
               <div className="flex items-center">
@@ -161,7 +161,7 @@ export default function Home() {
           </Card>
         </div>
         {/* Right Column: Tabs for Floor Plan Viewer and Editor */}
-        <div className="flex flex-col flex-1">
+        <div className="flex-1 flex flex-col">
           <Card className="flex flex-col flex-1">
             <CardHeader className="pb-3">
               <div className="flex items-center">

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { FloorPlanData } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ZoomIn, ZoomOut, Maximize, FileCode } from "lucide-react"
+import { ZoomIn, ZoomOut, Maximize, FileCode, Download } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface FloorPlanViewerProps {
   floorPlanData: FloorPlanData | null
@@ -34,7 +35,6 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
     }
   }, [floorPlanData?.svg_url, timestamp, showXml])
 
-  // Helper: adaugă padding la viewBox-ul SVG-ului
   function addPaddingToSvg(svg: string, paddingPercent: number = 0.05): string {
     const viewBoxMatch = svg.match(/viewBox="([\d\.\- ]+)"/);
     if (!viewBoxMatch) return svg;
@@ -45,20 +45,17 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
     return svg.replace(/viewBox="[\d\.\- ]+"/, `viewBox="${newViewBox}"`);
   }
 
-  // Auto-fit zoom logic
   useEffect(() => {
     if (!svgContent || !containerRef.current) return;
-    // Extrage viewBox-ul
     const viewBoxMatch = svgContent.match(/viewBox="([\d\.\- ]+)"/);
     if (!viewBoxMatch) return;
     const [minX, minY, width, height] = viewBoxMatch[1].split(" ").map(Number);
     const container = containerRef.current;
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
-    // Calculează scale-ul pentru fit cu padding 5%
-    const scaleX = containerWidth / (width * 1.1); // 10% extra pentru padding vizual
+    const scaleX = containerWidth / (width * 1.1);
     const scaleY = containerHeight / (height * 1.1);
-    const fitScale = Math.min(scaleX, scaleY, 1); // nu da zoom in peste 1
+    const fitScale = Math.min(scaleX, scaleY, 1);
     setScale(fitScale);
     setAutoScale(fitScale);
   }, [svgContent, floorPlanData]);
@@ -147,6 +144,48 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
     return code
   }
 
+  function downloadSvg() {
+    if (!svgContent) return;
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "floorplan.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadPng() {
+    if (!svgContent) return;
+    const svg = new Blob([svgContent], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(svg);
+    const img = new window.Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(function (blob) {
+          if (blob) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "floorplan.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          }
+        }, "image/png");
+      }
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
   return (
     <div className="relative h-full" ref={containerRef}>
       {!floorPlanData ? (
@@ -175,8 +214,8 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
           </p>
         </div>
       ) : (
-        <div className="overflow-auto border rounded-md bg-white h-[500px]">
-          <div className="absolute z-10 flex gap-1 top-2 right-2">
+        <div className="overflow-auto border rounded-md bg-white h-[60vh] min-h-[320px] w-full min-w-0 flex flex-col">
+          <div className="flex flex-wrap items-center justify-end gap-1 p-1 border-b sm:gap-2 sm:p-2">
             <Button variant="outline" size="icon" onClick={toggleView} className="w-8 h-8 bg-white">
               <FileCode className="w-4 h-4" />
             </Button>
@@ -189,6 +228,15 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
             <Button variant="outline" size="icon" onClick={handleResetZoom} className="w-8 h-8 bg-white">
               <Maximize className="w-4 h-4" />
             </Button>
+            <Select onValueChange={(v) => v === "svg" ? downloadSvg() : downloadPng()}>
+              <SelectTrigger className="flex items-center justify-center w-12 h-8 bg-white border rounded-lg">
+                <Download className="w-4 h-4" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="svg">Download as SVG</SelectItem>
+                <SelectItem value="png">Download as PNG</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="min-h-full overflow-auto">
             {showXml ? (
