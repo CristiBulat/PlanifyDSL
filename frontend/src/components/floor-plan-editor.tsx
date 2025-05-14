@@ -18,7 +18,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const svgContainerRef = useRef<HTMLDivElement>(null)
   const [selectedElement, setSelectedElement] = useState<string | null>(null)
   const [editMode, setEditMode] = useState<"select" | "add">("select")
-  const [addElementType, setAddElementType] = useState<string>("wall")
+  const [addElementType, setAddElementType] = useState<string>("room")
   const [scale, setScale] = useState<number>(0.694444)
   const [timestamp, setTimestamp] = useState<number>(Date.now())
   const [dragging, setDragging] = useState<boolean>(false)
@@ -26,7 +26,10 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const [svgContent, setSvgContent] = useState<string>("")
 
   const [localFloorPlanData, setLocalFloorPlanData] = useState<FloorPlanData | null>(floorPlanData)
-
+  
+  // Form state for editing properties (separate from actual data)
+  const [formValues, setFormValues] = useState<any>(null)
+  
   const [showInspector, setShowInspector] = useState<boolean>(false);
 
   useEffect(() => {
@@ -41,75 +44,229 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       fetch(`http://localhost:5001${localFloorPlanData.svg_url}?t=${timestamp}`)
         .then(response => response.text())
         .then(text => {
-          setSvgContent(text)
+          // Add data-id attributes to SVG elements if they don't have them
+          const enhancedSvg = enhanceSvgWithDataIds(text, localFloorPlanData.elements);
+          setSvgContent(enhancedSvg);
         })
         .catch(error => console.error("Error fetching SVG:", error))
     }
   }, [localFloorPlanData?.svg_url, timestamp])
 
-  useEffect(() => {
-    if (!svgContent || !selectedElement || !svgContainerRef.current) return;
+  // Function to add data-id attributes to SVG elements
+  const enhanceSvgWithDataIds = (svgContent: string, elements: FloorPlanElement[]): string => {
+    // Simple enhancement for debugging - this adds console log statements in the SVG
+    // to help track element clicks
+    let enhancedSvg = svgContent;
+    
+    // Return the original SVG if data-id attributes are already present
+    if (svgContent.includes('data-id=')) {
+      return svgContent;
+    }
+    
+    // Map of element types to their likely SVG tag patterns
+    const typeToTagMap: Record<string, string[]> = {
+      room: ['rect', 'path'],
+      wall: ['line'],
+      door: ['path', 'line'],
+      window: ['rect', 'line'],
+      bed: ['rect', 'g'],
+      table: ['rect', 'g'],
+      chair: ['rect', 'g'],
+      stairs: ['rect', 'g'],
+      elevator: ['rect', 'g']
+    };
+    
+    // For each element, try to find a matching SVG tag
+    elements.forEach((element, index) => {
+      if (!element.id || !element.type) return;
+      
+      // Get the possible tags for this element type
+      const possibleTags = typeToTagMap[element.type] || ['rect', 'path', 'line', 'g'];
+      
+      // For each possible tag, add a data-id attribute to all matching elements
+      possibleTags.forEach(tag => {
+        // Create a unique identifier for the element in the SVG
+        const tagRegex = new RegExp(`<${tag}\\s`, 'g');
+        let matchCount = 0;
+        
+        // Replace each occurrence of the tag with the same tag plus a data-id attribute
+        enhancedSvg = enhancedSvg.replace(tagRegex, (match) => {
+          matchCount++;
+          // Only add data-id to the nth occurrence matching this element's index
+          if (matchCount === index + 1) {
+            return `${match}data-id="${element.id}" data-type="${element.type}" `;
+          }
+          return match;
+        });
+      });
+    });
+    
+    return enhancedSvg;
+  };
 
-    setTimeout(() => {
+  // When an element is selected, initialize the form values
+  useEffect(() => {
+    if (!selectedElement || !localFloorPlanData) {
+      setFormValues(null);
+      return;
+    }
+    
+    const element = localFloorPlanData.elements.find(el => el.id === selectedElement);
+    if (element) {
+      // Clone the element to use as form values
+      setFormValues(JSON.parse(JSON.stringify(element)));
+    }
+  }, [selectedElement, localFloorPlanData]);
+
+  // Highlight selected element in the SVG
+  useEffect(() => {
+    if (!svgContent || !svgContainerRef.current) return;
+    
+    const updateSelectedElement = () => {
       const svgContainer = svgContainerRef.current;
       if (!svgContainer) return;
 
+      // Remove selected class from all elements
       const elements = svgContainer.querySelectorAll('[data-id]');
       elements.forEach(el => {
         el.classList.remove('selected-element');
       });
 
-      const selectedEl = svgContainer.querySelector(`[data-id="${selectedElement}"]`);
-      if (selectedEl) {
-        selectedEl.classList.add('selected-element');
+      // Add selected class to selected element
+      if (selectedElement) {
+        const selectedEl = svgContainer.querySelector(`[data-id="${selectedElement}"]`);
+        if (selectedEl) {
+          selectedEl.classList.add('selected-element');
+        }
       }
-    }, 100);
-  }, [selectedElement, svgContent]);
+    };
+
+    // Update immediately and after a short delay to ensure SVG is rendered
+    updateSelectedElement();
+    const timer = setTimeout(updateSelectedElement, 100);
+    
+    return () => clearTimeout(timer);
+  }, [svgContent, selectedElement]);
 
   useEffect(() => {
     setShowInspector(editMode === "select" && !!selectedElement);
   }, [editMode, selectedElement]);
 
+  // Improve SVG coordinate calculation
   const getSvgCoordinates = (event: React.MouseEvent): {x: number, y: number} | null => {
     if (!svgContainerRef.current) return null;
 
+    // Find and get dimensions of the SVG element
     const svgElement = svgContainerRef.current.querySelector('svg');
     if (!svgElement) return null;
 
     const rect = svgElement.getBoundingClientRect();
-
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
+    
+    // Get click position relative to SVG element
+    const clientX = event.clientX - rect.left;
+    const clientY = event.clientY - rect.top;
+    
+    // Get viewBox to calculate proper scaling
+    const viewBox = svgElement.getAttribute('viewBox');
+    if (!viewBox) {
+      // Fallback to simple scaling if no viewBox
+      return {
+        x: (clientX / scale) / 10,
+        y: (clientY / scale) / 10
+      };
+    }
+    
+    // Parse viewBox values
+    const [minX, minY, width, height] = viewBox.split(' ').map(Number);
+    
+    // Calculate the real coordinates based on viewBox
     return {
-      x: (x / scale) / 10,
-      y: (y / scale) / 10
+      x: minX + (clientX / rect.width) * width,
+      y: minY + (clientY / rect.height) * height
     };
   }
 
+  // Improved click handling with debugging
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!localFloorPlanData) return;
 
-    const coords = getSvgCoordinates(e);
-    if (!coords) return;
-
+    // Add debug output to see what element was clicked
+    console.log("Clicked element:", e.target);
+    
     if (editMode === "select") {
+      // Find what element was clicked
+      let clickedElement = null;
       let target = e.target as Element;
-      let elementId: string | null = null;
-
-      while (target && !elementId && target !== svgContainerRef.current) {
-        const dataId = target.getAttribute('data-id');
-        if (dataId) {
-          elementId = dataId;
-          break;
+      
+      // Check if the target itself has data-id
+      if (target.hasAttribute('data-id')) {
+        clickedElement = target.getAttribute('data-id');
+      } else {
+        // Walk up the DOM to find parent with data-id
+        while (target && !clickedElement && target !== svgContainerRef.current) {
+          if (target.hasAttribute('data-id')) {
+            clickedElement = target.getAttribute('data-id');
+            break;
+          }
+          target = target.parentElement!;
         }
-        if (!target.parentElement) break;
-        target = target.parentElement;
       }
-
-      setSelectedElement(elementId);
+      
+      // If we found an element, select it
+      if (clickedElement) {
+        console.log("Selected element:", clickedElement);
+        setSelectedElement(clickedElement);
+        setShowInspector(true);
+      } else {
+        // Debug: show where the click happened
+        const coords = getSvgCoordinates(e);
+        console.log("Click coordinates:", coords);
+        
+        // Try a different approach - check if we're near any element
+        if (svgContainerRef.current && coords) {
+          console.log("Trying proximity selection...");
+          
+          // Get all elements with data-id
+          const elements = svgContainerRef.current.querySelectorAll('[data-id]');
+          let closestElement = null;
+          let closestDistance = Infinity;
+          
+          elements.forEach(el => {
+            // Get element's bounding box
+            const bbox = el.getBoundingClientRect();
+            const cx = bbox.left + bbox.width / 2;
+            const cy = bbox.top + bbox.height / 2;
+            
+            // Calculate distance from click to element center
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+            const distance = Math.sqrt(
+              Math.pow(clickX - cx, 2) + Math.pow(clickY - cy, 2)
+            );
+            
+            // If this is the closest element so far, remember it
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestElement = el;
+            }
+          });
+          
+          // If we found a close element and it's within a reasonable distance
+          if (closestElement && closestDistance < 50) {
+            const elementId = closestElement.getAttribute('data-id');
+            console.log("Selected nearby element:", elementId);
+            if (elementId) {
+              setSelectedElement(elementId);
+              setShowInspector(true);
+            }
+          }
+        }
+      }
     } else if (editMode === "add") {
-      addNewElement(coords.x, coords.y);
+      const coords = getSvgCoordinates(e);
+      if (coords) {
+        addNewElement(coords.x, coords.y);
+      }
     }
   }
 
@@ -118,16 +275,18 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
     let target = e.target as Element;
     let found = false;
-
+    
+    // Check if the clicked element is the selected one
     while (target && !found && target !== svgContainerRef.current) {
-      if (target.getAttribute('data-id') === selectedElement) {
+      const dataId = target.getAttribute('data-id');
+      if (dataId === selectedElement) {
         found = true;
         break;
       }
       if (!target.parentElement) break;
       target = target.parentElement;
     }
-
+    
     if (!found) return;
 
     const coords = getSvgCoordinates(e);
@@ -135,7 +294,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
     setDragging(true);
     setDragStart(coords);
-
     e.preventDefault();
   }
 
@@ -210,55 +368,54 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const addNewElement = (x: number, y: number) => {
     if (!localFloorPlanData) return;
 
+    // Use timestamp to create unique IDs
+    const uniqueId = Date.now().toString();
+    
     const newElement: FloorPlanElement = {
-      id: `${addElementType}_${Date.now()}`,
+      id: `${addElementType}_${uniqueId}`,
       type: addElementType as any,
     };
 
     switch (addElementType) {
       case "room":
         newElement.position = [x, y];
-        newElement.size = [5, 4];
-        break;
-      case "wall":
-        newElement.start = [x, y];
-        newElement.end = [x + 5, y];
+        newElement.size = [25, 25]; // More realistic room size
         break;
       case "door":
         newElement.position = [x, y];
-        newElement.width = 1;
-        newElement.height = 0.5;
+        newElement.width = 7;
+        newElement.height = 2;
         newElement.direction = "right";
         break;
       case "window":
         newElement.position = [x, y];
-        newElement.width = 1.5;
-        newElement.height = 0.3;
+        newElement.width = 4;
+        newElement.height = 1;
         break;
       case "bed":
         newElement.position = [x, y];
-        newElement.width = 3;
-        newElement.height = 5;
+        newElement.width = 10;
+        newElement.height = 15;
         break;
       case "table":
         newElement.position = [x, y];
-        newElement.width = 2;
-        newElement.height = 2;
+        newElement.width = 10;
+        newElement.height = 10;
         break;
       case "chair":
         newElement.position = [x, y];
-        newElement.width = 1;
-        newElement.height = 1;
+        newElement.width = 7;
+        newElement.height = 7;
         break;
       case "stairs":
         newElement.position = [x, y];
-        newElement.width = 2;
-        newElement.height = 4;
+        newElement.width = 10;
+        newElement.height = 12;
         break;
       case "elevator":
         newElement.position = [x, y];
-        newElement.width = 2;
-        newElement.height = 2;
+        newElement.width = 10;
+        newElement.height = 10;
         break;
     }
 
@@ -267,14 +424,15 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       elements: [...localFloorPlanData.elements, newElement],
     };
 
-    setLocalFloorPlanData(updatedData);
-    setSelectedElement(newElement.id);
+    // Remember element ID for selection after update
+    const elementIdToSelect = newElement.id;
 
+    setLocalFloorPlanData(updatedData);
     const dslCode = generateDslCode(updatedData);
 
     parseFloorPlan(dslCode)
       .then(data => {
-        if (data && localFloorPlanData) {
+        if (data) {
           setLocalFloorPlanData(prev => {
             if (prev) {
               return {
@@ -285,10 +443,17 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
             return data;
           });
           setTimestamp(Date.now());
+          
+          // Select the new element after SVG is updated
+          setTimeout(() => {
+            setSelectedElement(elementIdToSelect);
+            setShowInspector(true);
+          }, 300);
         }
       })
       .catch(err => console.error("Error updating floor plan after adding element:", err));
 
+    // Switch to select mode
     setEditMode("select");
   }
 
@@ -304,6 +469,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
     setLocalFloorPlanData(updatedData);
     setSelectedElement(null);
+    setShowInspector(false);
     
     const dslCode = generateDslCode(updatedData);
     parseFloorPlan(dslCode)
@@ -324,54 +490,100 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       .catch(err => console.error("Error updating floor plan after deletion:", err));
   }
 
-  const handleElementPropertyChange = (property: string, value: any) => {
-    if (!localFloorPlanData || !selectedElement) return;
-
-    const updatedElements = localFloorPlanData.elements.map((element) => {
-      if (element.id === selectedElement) {
-        if (property.includes(".")) {
-          const [mainProp, index] = property.split(".");
-
-          if (mainProp && !element[mainProp as keyof FloorPlanElement]) {
-            const updatedElement = {...element} as any;
-            updatedElement[mainProp] = [];
-            element = updatedElement;
-          }
-
-          if (mainProp && index && element[mainProp as keyof FloorPlanElement]) {
-            const updatedElement = {...element} as any;
-            const arr = [...(updatedElement[mainProp] || [])];
-            arr[Number.parseInt(index)] = Number.parseFloat(value);
-            updatedElement[mainProp] = arr;
-            return updatedElement;
-          }
-        } else if (property === "width" || property === "height") {
-          return {
-            ...element,
-            [property]: Number.parseFloat(value)
-          };
-        } else {
-          return {
-            ...element,
-            [property]: value
-          };
+  // Handle changes to form values (not actual data yet)
+  const handleFormValueChange = (property: string, value: any) => {
+    if (!formValues) return;
+    
+    if (property.includes(".")) {
+      const [mainProp, index] = property.split(".");
+      
+      setFormValues(prev => {
+        const newState = { ...prev };
+        
+        // Create the array if it doesn't exist
+        if (!newState[mainProp]) {
+          newState[mainProp] = [];
         }
+        
+        // Create a copy of the array
+        const arr = [...newState[mainProp]];
+        
+        // Handle numeric validation
+        const numValue = value === "" || isNaN(Number(value)) ? 0 : Number.parseFloat(value);
+        arr[Number.parseInt(index)] = numValue;
+        
+        // Update the property
+        newState[mainProp] = arr;
+        return newState;
+      });
+    } else if (property === "width" || property === "height") {
+      // Validate numeric properties - use 1 as fallback for empty values
+      const numValue = value === "" || isNaN(Number(value)) ? 1 : Number.parseFloat(value);
+      setFormValues(prev => ({
+        ...prev,
+        [property]: numValue
+      }));
+    } else {
+      setFormValues(prev => ({
+        ...prev,
+        [property]: value
+      }));
+    }
+  }
+  
+  // Apply changes from form to actual data
+  const applyFormChanges = () => {
+    if (!localFloorPlanData || !selectedElement || !formValues) return;
+    
+    // Check if ID has changed
+    const oldId = selectedElement;
+    const newId = formValues.id;
+    const idHasChanged = newId !== oldId;
+    
+    // Update elements array with form values
+    const updatedElements = localFloorPlanData.elements.map(element => {
+      if (element.id === oldId) {
+        return { ...formValues };
       }
       return element;
     });
-
+    
     const updatedData = {
       ...localFloorPlanData,
-      elements: updatedElements,
+      elements: updatedElements
     };
-
+    
+    // Update local floor plan data
     setLocalFloorPlanData(updatedData);
+    
+    // If ID changed, update selected element
+    if (idHasChanged) {
+      setSelectedElement(newId);
+    }
+    
+    // Generate DSL code and update
+    const dslCode = generateDslCode(updatedData);
+    parseFloorPlan(dslCode)
+      .then(data => {
+        if (data) {
+          setLocalFloorPlanData(prev => {
+            if (prev) {
+              return {
+                ...prev,
+                svg_url: data.svg_url
+              };
+            }
+            return data;
+          });
+          setTimestamp(Date.now());
+        }
+      })
+      .catch(err => console.error("Error applying form changes:", err));
   }
 
   const getSelectedElementDetails = () => {
-    if (!localFloorPlanData || !selectedElement) return null;
-
-    return localFloorPlanData.elements.find((element) => element.id === selectedElement);
+    if (!formValues) return null;
+    return formValues;
   }
 
   const renderElementProperties = () => {
@@ -386,7 +598,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
             <label className="text-xs font-medium text-gray-700">ID</label>
             <Input
               value={element.id || ""}
-              onChange={(e) => handleElementPropertyChange("id", e.target.value)}
+              onChange={(e) => handleFormValueChange("id", e.target.value)}
               className="h-8"
             />
           </div>
@@ -398,7 +610,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.position[0]}
-                  onChange={(e) => handleElementPropertyChange("position.0", e.target.value)}
+                  onChange={(e) => handleFormValueChange("position.0", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -407,7 +619,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.position[1]}
-                  onChange={(e) => handleElementPropertyChange("position.1", e.target.value)}
+                  onChange={(e) => handleFormValueChange("position.1", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -416,7 +628,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.size[0]}
-                  onChange={(e) => handleElementPropertyChange("size.0", e.target.value)}
+                  onChange={(e) => handleFormValueChange("size.0", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -425,7 +637,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.size[1]}
-                  onChange={(e) => handleElementPropertyChange("size.1", e.target.value)}
+                  onChange={(e) => handleFormValueChange("size.1", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -433,7 +645,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <label className="text-xs font-medium text-gray-700">Label</label>
                 <Input
                   value={element.label || ""}
-                  onChange={(e) => handleElementPropertyChange("label", e.target.value)}
+                  onChange={(e) => handleFormValueChange("label", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -447,7 +659,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.start[0]}
-                  onChange={(e) => handleElementPropertyChange("start.0", e.target.value)}
+                  onChange={(e) => handleFormValueChange("start.0", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -456,7 +668,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.start[1]}
-                  onChange={(e) => handleElementPropertyChange("start.1", e.target.value)}
+                  onChange={(e) => handleFormValueChange("start.1", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -465,7 +677,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.end[0]}
-                  onChange={(e) => handleElementPropertyChange("end.0", e.target.value)}
+                  onChange={(e) => handleFormValueChange("end.0", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -474,7 +686,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.end[1]}
-                  onChange={(e) => handleElementPropertyChange("end.1", e.target.value)}
+                  onChange={(e) => handleFormValueChange("end.1", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -488,7 +700,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.position[0]}
-                  onChange={(e) => handleElementPropertyChange("position.0", e.target.value)}
+                  onChange={(e) => handleFormValueChange("position.0", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -497,7 +709,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.position[1]}
-                  onChange={(e) => handleElementPropertyChange("position.1", e.target.value)}
+                  onChange={(e) => handleFormValueChange("position.1", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -506,7 +718,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.width || 1}
-                  onChange={(e) => handleElementPropertyChange("width", e.target.value)}
+                  onChange={(e) => handleFormValueChange("width", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -515,7 +727,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <Input
                   type="number"
                   value={element.height || 1}
-                  onChange={(e) => handleElementPropertyChange("height", e.target.value)}
+                  onChange={(e) => handleFormValueChange("height", e.target.value)}
                   className="h-8"
                 />
               </div>
@@ -525,7 +737,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   <label className="text-xs font-medium text-gray-700">Direction</label>
                   <Select
                     value={element.direction || "right"}
-                    onValueChange={(value) => handleElementPropertyChange("direction", value)}
+                    onValueChange={(value) => handleFormValueChange("direction", value)}
                   >
                     <SelectTrigger className="h-8">
                       <SelectValue placeholder="Direction" />
@@ -547,7 +759,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
             <Trash2 className="w-4 h-4 mr-2" />
             Delete Element
           </Button>
-          <Button variant="default" size="sm" onClick={handleSaveChanges} className="text-white bg-green-600 hover:bg-green-700">
+          <Button variant="default" size="sm" onClick={applyFormChanges} className="text-white bg-green-600 hover:bg-green-700">
             <Save className="w-4 h-4 mr-2" />
             Save Changes
           </Button>
@@ -570,6 +782,11 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
   const handleSaveChanges = async () => {
     if (!localFloorPlanData) return;
+
+    // Apply form changes first if there are any
+    if (formValues && selectedElement) {
+      applyFormChanges();
+    }
 
     const dslCode = generateDslCode(localFloorPlanData);
 
@@ -617,8 +834,8 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
           if (element.position) {
             code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
+          if (element.width !== undefined) code += `    width: ${element.width};\n`;
+          if (element.height !== undefined) code += `    height: ${element.height};\n`;
           if (element.direction) code += `    direction: "${element.direction}";\n`;
           code += `}\n\n`;
           break;
@@ -628,8 +845,8 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
           if (element.position) {
             code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
+          if (element.width !== undefined) code += `    width: ${element.width};\n`;
+          if (element.height !== undefined) code += `    height: ${element.height};\n`;
           code += `}\n\n`;
           break;
         case "bed":
@@ -643,8 +860,8 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
           if (element.position) {
             code += `    position: [${element.position[0]}, ${element.position[1]}];\n`;
           }
-          if (element.width) code += `    width: ${element.width};\n`;
-          if (element.height) code += `    height: ${element.height};\n`;
+          if (element.width !== undefined) code += `    width: ${element.width};\n`;
+          if (element.height !== undefined) code += `    height: ${element.height};\n`;
           code += `}\n\n`;
           break;
       }
@@ -760,7 +977,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="room">Room</SelectItem>
-                    <SelectItem value="wall">Wall</SelectItem>
+                    {/* Wall option removed */}
                     <SelectItem value="door">Door</SelectItem>
                     <SelectItem value="window">Window</SelectItem>
                     <SelectItem value="bed">Bed</SelectItem>
@@ -819,7 +1036,10 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                 <div className="bg-white rounded-lg shadow-lg p-4 w-full h-auto min-h-[320px] relative border flex flex-col items-stretch">
                   <button
                     className="absolute text-gray-400 top-2 right-2 hover:text-gray-700"
-                    onClick={() => setSelectedElement(null)}
+                    onClick={() => {
+                      setSelectedElement(null);
+                      setShowInspector(false);
+                    }}
                   >
                     <X className="w-5 h-5" />
                   </button>

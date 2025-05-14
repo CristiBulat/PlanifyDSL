@@ -68,20 +68,6 @@ Chair {
     position: [3.5, 7];
     width: 3;
     height: 1.5;
-}
-
-Stairs {
-    id: "stairs";
-    position: [40, 40];
-    width: 3;
-    height: 1.5;
-}
-
-Elevator {
-    id: "elevator";
-    position: [50, 50];
-    width: 3;
-    height: 1.5;
 }`;
 
 export const useDslState = () => {
