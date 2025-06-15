@@ -27,7 +27,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
 
   const [localFloorPlanData, setLocalFloorPlanData] = useState<FloorPlanData | null>(floorPlanData)
   
-  // Form state for editing properties (separate from actual data)
   const [formValues, setFormValues] = useState<any>(null)
   
   const [showInspector, setShowInspector] = useState<boolean>(false);
@@ -44,7 +43,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       fetch(`http://localhost:5001${localFloorPlanData.svg_url}?t=${timestamp}`)
         .then(response => response.text())
         .then(text => {
-          // Add data-id attributes to SVG elements if they don't have them
           const enhancedSvg = enhanceSvgWithDataIds(text, localFloorPlanData.elements);
           setSvgContent(enhancedSvg);
         })
@@ -52,18 +50,13 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     }
   }, [localFloorPlanData?.svg_url, timestamp])
 
-  // Function to add data-id attributes to SVG elements
   const enhanceSvgWithDataIds = (svgContent: string, elements: FloorPlanElement[]): string => {
-    // Simple enhancement for debugging - this adds console log statements in the SVG
-    // to help track element clicks
     let enhancedSvg = svgContent;
     
-    // Return the original SVG if data-id attributes are already present
     if (svgContent.includes('data-id=')) {
       return svgContent;
     }
     
-    // Map of element types to their likely SVG tag patterns
     const typeToTagMap: Record<string, string[]> = {
       room: ['rect', 'path'],
       wall: ['line'],
@@ -76,23 +69,17 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       elevator: ['rect', 'g']
     };
     
-    // For each element, try to find a matching SVG tag
     elements.forEach((element, index) => {
       if (!element.id || !element.type) return;
       
-      // Get the possible tags for this element type
       const possibleTags = typeToTagMap[element.type] || ['rect', 'path', 'line', 'g'];
-      
-      // For each possible tag, add a data-id attribute to all matching elements
+        
       possibleTags.forEach(tag => {
-        // Create a unique identifier for the element in the SVG
         const tagRegex = new RegExp(`<${tag}\\s`, 'g');
         let matchCount = 0;
         
-        // Replace each occurrence of the tag with the same tag plus a data-id attribute
         enhancedSvg = enhancedSvg.replace(tagRegex, (match) => {
           matchCount++;
-          // Only add data-id to the nth occurrence matching this element's index
           if (matchCount === index + 1) {
             return `${match}data-id="${element.id}" data-type="${element.type}" `;
           }
@@ -104,7 +91,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     return enhancedSvg;
   };
 
-  // When an element is selected, initialize the form values
   useEffect(() => {
     if (!selectedElement || !localFloorPlanData) {
       setFormValues(null);
@@ -113,26 +99,22 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     
     const element = localFloorPlanData.elements.find(el => el.id === selectedElement);
     if (element) {
-      // Clone the element to use as form values
       setFormValues(JSON.parse(JSON.stringify(element)));
     }
   }, [selectedElement, localFloorPlanData]);
 
-  // Highlight selected element in the SVG
   useEffect(() => {
     if (!svgContent || !svgContainerRef.current) return;
     
     const updateSelectedElement = () => {
       const svgContainer = svgContainerRef.current;
       if (!svgContainer) return;
-
-      // Remove selected class from all elements
+      
       const elements = svgContainer.querySelectorAll('[data-id]');
       elements.forEach(el => {
         el.classList.remove('selected-element');
       });
 
-      // Add selected class to selected element
       if (selectedElement) {
         const selectedEl = svgContainer.querySelector(`[data-id="${selectedElement}"]`);
         if (selectedEl) {
@@ -141,7 +123,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       }
     };
 
-    // Update immediately and after a short delay to ensure SVG is rendered
     updateSelectedElement();
     const timer = setTimeout(updateSelectedElement, 100);
     
@@ -152,57 +133,44 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     setShowInspector(editMode === "select" && !!selectedElement);
   }, [editMode, selectedElement]);
 
-  // Improve SVG coordinate calculation
   const getSvgCoordinates = (event: React.MouseEvent): {x: number, y: number} | null => {
     if (!svgContainerRef.current) return null;
 
-    // Find and get dimensions of the SVG element
     const svgElement = svgContainerRef.current.querySelector('svg');
     if (!svgElement) return null;
 
     const rect = svgElement.getBoundingClientRect();
     
-    // Get click position relative to SVG element
     const clientX = event.clientX - rect.left;
     const clientY = event.clientY - rect.top;
-    
-    // Get viewBox to calculate proper scaling
     const viewBox = svgElement.getAttribute('viewBox');
     if (!viewBox) {
-      // Fallback to simple scaling if no viewBox
       return {
         x: (clientX / scale) / 10,
         y: (clientY / scale) / 10
       };
     }
     
-    // Parse viewBox values
     const [minX, minY, width, height] = viewBox.split(' ').map(Number);
     
-    // Calculate the real coordinates based on viewBox
     return {
       x: minX + (clientX / rect.width) * width,
       y: minY + (clientY / rect.height) * height
     };
   }
 
-  // Improved click handling with debugging
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!localFloorPlanData) return;
 
-    // Add debug output to see what element was clicked
     console.log("Clicked element:", e.target);
     
     if (editMode === "select") {
-      // Find what element was clicked
       let clickedElement = null;
       let target = e.target as Element;
       
-      // Check if the target itself has data-id
       if (target.hasAttribute('data-id')) {
         clickedElement = target.getAttribute('data-id');
       } else {
-        // Walk up the DOM to find parent with data-id
         while (target && !clickedElement && target !== svgContainerRef.current) {
           if (target.hasAttribute('data-id')) {
             clickedElement = target.getAttribute('data-id');
@@ -212,48 +180,39 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
         }
       }
       
-      // If we found an element, select it
       if (clickedElement) {
         console.log("Selected element:", clickedElement);
         setSelectedElement(clickedElement);
         setShowInspector(true);
       } else {
-        // Debug: show where the click happened
         const coords = getSvgCoordinates(e);
         console.log("Click coordinates:", coords);
         
-        // Try a different approach - check if we're near any element
         if (svgContainerRef.current && coords) {
           console.log("Trying proximity selection...");
-          
-          // Get all elements with data-id
           const elements = svgContainerRef.current.querySelectorAll('[data-id]');
           let closestElement = null;
           let closestDistance = Infinity;
           
           elements.forEach(el => {
-            // Get element's bounding box
             const bbox = el.getBoundingClientRect();
             const cx = bbox.left + bbox.width / 2;
             const cy = bbox.top + bbox.height / 2;
             
-            // Calculate distance from click to element center
             const clickX = e.clientX;
             const clickY = e.clientY;
             const distance = Math.sqrt(
               Math.pow(clickX - cx, 2) + Math.pow(clickY - cy, 2)
             );
             
-            // If this is the closest element so far, remember it
             if (distance < closestDistance) {
               closestDistance = distance;
-              closestElement = el;
+              closestElement = el as Element;
             }
           });
           
-          // If we found a close element and it's within a reasonable distance
           if (closestElement && closestDistance < 50) {
-            const elementId = closestElement.getAttribute('data-id');
+            const elementId = (closestElement as Element | null)?.getAttribute('data-id');
             console.log("Selected nearby element:", elementId);
             if (elementId) {
               setSelectedElement(elementId);
@@ -276,7 +235,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     let target = e.target as Element;
     let found = false;
     
-    // Check if the clicked element is the selected one
     while (target && !found && target !== svgContainerRef.current) {
       const dataId = target.getAttribute('data-id');
       if (dataId === selectedElement) {
@@ -368,7 +326,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const addNewElement = (x: number, y: number) => {
     if (!localFloorPlanData) return;
 
-    // Use timestamp to create unique IDs
     const uniqueId = Date.now().toString();
     
     const newElement: FloorPlanElement = {
@@ -379,7 +336,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
     switch (addElementType) {
       case "room":
         newElement.position = [x, y];
-        newElement.size = [25, 25]; // More realistic room size
+        newElement.size = [25, 25];
         break;
       case "door":
         newElement.position = [x, y];
@@ -423,8 +380,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       ...localFloorPlanData,
       elements: [...localFloorPlanData.elements, newElement],
     };
-
-    // Remember element ID for selection after update
+    
     const elementIdToSelect = newElement.id;
 
     setLocalFloorPlanData(updatedData);
@@ -444,7 +400,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
           });
           setTimestamp(Date.now());
           
-          // Select the new element after SVG is updated
           setTimeout(() => {
             setSelectedElement(elementIdToSelect);
             setShowInspector(true);
@@ -453,7 +408,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       })
       .catch(err => console.error("Error updating floor plan after adding element:", err));
 
-    // Switch to select mode
     setEditMode("select");
   }
 
@@ -490,57 +444,48 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       .catch(err => console.error("Error updating floor plan after deletion:", err));
   }
 
-  // Handle changes to form values (not actual data yet)
   const handleFormValueChange = (property: string, value: any) => {
     if (!formValues) return;
     
     if (property.includes(".")) {
       const [mainProp, index] = property.split(".");
       
-      setFormValues(prev => {
+      setFormValues((prev: FloorPlanElement) => {
         const newState = { ...prev };
         
-        // Create the array if it doesn't exist
         if (!newState[mainProp]) {
           newState[mainProp] = [];
         }
         
-        // Create a copy of the array
         const arr = [...newState[mainProp]];
         
-        // Handle numeric validation
         const numValue = value === "" || isNaN(Number(value)) ? 0 : Number.parseFloat(value);
         arr[Number.parseInt(index)] = numValue;
         
-        // Update the property
         newState[mainProp] = arr;
         return newState;
       });
     } else if (property === "width" || property === "height") {
-      // Validate numeric properties - use 1 as fallback for empty values
       const numValue = value === "" || isNaN(Number(value)) ? 1 : Number.parseFloat(value);
-      setFormValues(prev => ({
+      setFormValues((prev: FloorPlanElement) => ({
         ...prev,
         [property]: numValue
       }));
     } else {
-      setFormValues(prev => ({
+      setFormValues((prev: FloorPlanElement) => ({
         ...prev,
         [property]: value
       }));
     }
   }
   
-  // Apply changes from form to actual data
   const applyFormChanges = () => {
     if (!localFloorPlanData || !selectedElement || !formValues) return;
     
-    // Check if ID has changed
     const oldId = selectedElement;
     const newId = formValues.id;
     const idHasChanged = newId !== oldId;
     
-    // Update elements array with form values
     const updatedElements = localFloorPlanData.elements.map(element => {
       if (element.id === oldId) {
         return { ...formValues };
@@ -553,15 +498,12 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
       elements: updatedElements
     };
     
-    // Update local floor plan data
     setLocalFloorPlanData(updatedData);
     
-    // If ID changed, update selected element
     if (idHasChanged) {
       setSelectedElement(newId);
     }
     
-    // Generate DSL code and update
     const dslCode = generateDslCode(updatedData);
     parseFloorPlan(dslCode)
       .then(data => {
@@ -783,7 +725,6 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
   const handleSaveChanges = async () => {
     if (!localFloorPlanData) return;
 
-    // Apply form changes first if there are any
     if (formValues && selectedElement) {
       applyFormChanges();
     }
