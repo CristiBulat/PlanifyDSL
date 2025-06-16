@@ -187,9 +187,9 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
   }
 
   return (
-    <div className="relative h-full" ref={containerRef}>
+    <div className="relative w-full h-full">
       {!floorPlanData ? (
-        <div className="flex flex-col items-center justify-center h-[500px] bg-white rounded-md border border-dashed border-gray-300">
+        <div className="flex flex-col items-center justify-center h-full bg-white rounded-md border border-dashed border-gray-300">
           <div className="mb-2 text-gray-400">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -214,7 +214,7 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
           </p>
         </div>
       ) : (
-        <div className="overflow-auto border rounded-md bg-white h-[60vh] min-h-[320px] w-full min-w-0 flex flex-col">
+        <div className="bg-white border rounded-md flex flex-col w-full min-w-0 h-full">
           <div className="flex flex-wrap items-center justify-end gap-1 p-1 border-b sm:gap-2 sm:p-2">
             <Button variant="outline" size="icon" onClick={toggleView} className="w-8 h-8 bg-white">
               <FileCode className="w-4 h-4" />
@@ -238,7 +238,7 @@ export default function FloorPlanViewer({ floorPlanData }: FloorPlanViewerProps)
               </SelectContent>
             </Select>
           </div>
-          <div className="min-h-full overflow-auto">
+          <div className="h-full overflow-auto flex-1" ref={containerRef}>
             {showXml ? (
               <pre className="p-4 overflow-auto font-mono text-xs whitespace-pre">{generateDslCode(floorPlanData)}</pre>
             ) : (

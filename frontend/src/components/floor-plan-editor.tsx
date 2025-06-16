@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import type { FloorPlanData, FloorPlanElement } from "@/lib/types"
 import { Trash2, MousePointer, Plus, ZoomIn, ZoomOut, Maximize, Save, X, Download } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { parseFloorPlan } from "@/lib/api"
 
 interface FloorPlanEditorProps {
@@ -905,7 +904,7 @@ export default function FloorPlanEditor({ floorPlanData, onUpdate }: FloorPlanEd
                   variant="default"
                   size="sm"
                   onClick={handleSaveChanges}
-                  className="h-8 bg-green-600 hover:bg-green-700"
+                  className="h-8 bg-green-600 color hover:bg-green-700"
                 >
                   <Save className="w-4 h-4 mr-1" />
                   Save Changes

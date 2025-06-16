@@ -2,7 +2,9 @@
 
 import type React from "react"
 import { useRef, useEffect } from "react"
-import { Textarea } from "@/components/ui/textarea"
+import Editor from "react-simple-code-editor"
+import { highlight } from "../lib/dslHighlight"
+import "prismjs/themes/prism-coy.css"
 
 interface CodeEditorProps {
   value: string
@@ -12,15 +14,14 @@ interface CodeEditorProps {
 export default function CodeEditor({ value, onChange }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Tab") {
       e.preventDefault()
-      const start = e.currentTarget.selectionStart
-      const end = e.currentTarget.selectionEnd
-
+      const target = e.target as HTMLTextAreaElement
+      const start = target.selectionStart
+      const end = target.selectionEnd
       const newValue = value.substring(0, start) + "  " + value.substring(end)
       onChange(newValue)
-
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 2
@@ -37,13 +38,21 @@ export default function CodeEditor({ value, onChange }: CodeEditorProps) {
   }, [value])
 
   return (
-    <Textarea
-      ref={textareaRef}
+    <Editor
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onValueChange={onChange}
+      highlight={highlight}
+      padding={16}
+      textareaId="codeArea"
+      textareaClassName="font-mono"
+      className="rounded-lg border bg-zinc-900 text-white shadow-lg min-h-[400px] focus:outline-none"
+      style={{
+        fontFamily: 'Fira Mono, Menlo, Monaco, "Consolas", monospace',
+        fontSize: 16,
+        background: "#f8fafc",
+        color: "#222",
+      }}
       onKeyDown={handleKeyDown}
-      className="font-mono h-[400px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
-      placeholder="Enter your DSL code here..."
     />
   )
 }
