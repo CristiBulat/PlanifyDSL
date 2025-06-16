@@ -8,9 +8,10 @@ import FloorPlanEditor from "@/components/floor-plan-editor"
 import FloorPlanViewer from "@/components/floor-plan-viewer"
 import CodeEditor from "@/components/code-editor"
 import { parseFloorPlan } from "@/lib/api"
-import type { FloorPlanData, FloorPlanElement } from "@/lib/types"
+import type { FloorPlanData } from "@/lib/types"
 import { Loader2, Code2, Grid2X2, Wand2 } from "lucide-react"
 import { useDslState } from "@/lib/dsl-state"
+import Image from "next/image"
 
 export default function Home() {
   const { dslCode, setDslCode, generateRandomDslCode } = useDslState()
@@ -115,15 +116,20 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="container py-4 mx-auto">
-          <h1 className="text-2xl font-bold">2D Floor Planning Application</h1>
-          <p className="text-gray-500">Design floor plans using a domain-specific language</p>
+      <header className="relative bg-white border-b shadow-sm" style={{height: 60}}>
+        <div className="container relative flex items-center justify-between h-full gap-3 mx-auto">
+          <div className="flex items-center flex-shrink-0 h-full">
+            <Image src="/planify-logo-2.png" alt="Planify Logo" width={100} height={40} priority />
+          </div>
+          <div className="absolute flex flex-col items-center justify-center h-full -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
+            <p className="text-sm font-medium text-gray-500 whitespace-nowrap">
+              <span className="font-semibold text-purple-600">Smart</span>. <span className="font-semibold text-purple-600">Fast</span>. <span className="font-semibold text-purple-600">Visual</span>. Floor plans with <span className="font-semibold text-purple-600">Planify</span>.
+            </p>
+          </div>
         </div>
       </header>
 
-      <main className="container flex flex-row flex-1 gap-6 px-4 py-6 mx-auto">
-        {/* Left Column: DSL Code Editor */}
+      <main className="container flex flex-row flex-1 gap-6 px-4 py-6 mx-auto h-[300px]">
         <div className="flex flex-col w-[400px] min-w-[400px] max-w-[400px]">
           <Card className="flex flex-col flex-1">
             <CardHeader className="pb-3">
@@ -160,8 +166,7 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
-        {/* Right Column: Tabs for Floor Plan Viewer and Editor */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex flex-col flex-1">
           <Card className="flex flex-col flex-1">
             <CardHeader className="pb-3">
               <div className="flex items-center">

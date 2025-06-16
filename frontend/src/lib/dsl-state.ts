@@ -12,7 +12,7 @@ Room {
 
 Room {
     id: "living";
-    label: "Living-Room";
+    label: "Living_Room";
     size: [40, 30];
     position: [0, 25];
 }
@@ -92,7 +92,7 @@ export const useDslState = () => {
         const posY = row * (roomHeight + 2);
         newCode += `Room {\n`;
         newCode += `    id: "${roomType.toLowerCase().replace(/ /g, '-')}_${roomCount}";\n`;
-        newCode += `    label: "${roomType}";\n`;
+        newCode += `    label: "${roomType.replace(/-/g, '_')}";\n`;
         newCode += `    size: [${roomWidth}, ${roomHeight}];\n`;
         newCode += `    position: [${posX}, ${posY}];\n`;
         newCode += `}\n\n`;
